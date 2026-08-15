@@ -14,4 +14,8 @@ public interface CourseOfferingRepository extends JpaRepository<CourseOfferingEn
       UUID courseId, UUID academicYearId, UUID groupId);
 
   List<CourseOfferingEntity> findByAcademicYear_IdAndGroup_Id(UUID academicYearId, UUID groupId);
+
+  List<CourseOfferingEntity> findByAcademicYear_Id(UUID academicYearId);
+
+  List<CourseOfferingEntity> findByGroup_Id(UUID groupId);
 }
