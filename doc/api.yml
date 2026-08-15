@@ -1,0 +1,1499 @@
+openapi: 3.0.3
+
+info:
+  title: HEI Grades API
+  version: 1.0.0
+  description: API for HEI academic grades and graduate management.
+
+tags:
+  - name: Auth
+  - name: Users
+  - name: Students
+  - name: Academic
+  - name: Courses
+  - name: Exams
+  - name: Grades
+  - name: Graduates
+
+paths:
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate a user
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+
+  /users:
+    post:
+      tags: [Users]
+      summary: Create a user
+      description: >
+        ADMIN only. Creates a STUDENT, TEACHER or ADMIN.
+        std and promotionId are mandatory only when role is STUDENT.
+      operationId: createUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid user data
+        '403':
+          description: ADMIN role required
+
+  /users/{userId}/status:
+    patch:
+      tags: [Users]
+      summary: Change user status
+      description: >
+        ADMIN only. Enables or disables a user without deleting
+        their academic history.
+      operationId: updateUserStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserStatusRequest'
+      responses:
+        '200':
+          description: User status updated
+        '404':
+          description: User not found
+
+  /students/me:
+    get:
+      tags: [Students]
+      summary: Get current student profile
+      description: STUDENT only. Returns the authenticated student's own profile.
+      operationId: getCurrentStudent
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current student
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          description: STUDENT role required
+
+  /students/me/grades:
+    get:
+      tags: [Grades]
+      summary: Get current student's grades
+      description: >
+        STUDENT only. Returns only the exam grades belonging to the
+        authenticated student.
+      operationId: getCurrentStudentGrades
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current student's grades
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudentGrade'
+        '403':
+          description: STUDENT role required
+
+  /students/{studentId}:
+    patch:
+      tags: [Students]
+      summary: Update student information
+      description: >
+        ADMIN only. Updates simple student information such as name,
+        email, STD or promotion. Group and pathway changes are not
+        allowed here because they require history tracking.
+      operationId: updateStudent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStudentRequest'
+      responses:
+        '200':
+          description: Student updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Student not found
+
+  /students/{studentId}/group-assignments:
+    post:
+      tags: [Students]
+      summary: Assign or move a student to a group
+      description: >
+        ADMIN only. Creates a new student group history entry instead of
+        overwriting the previous assignment. Previously followed courses
+        must remain attached to the student.
+      operationId: assignStudentGroup
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentGroupAssignmentRequest'
+      responses:
+        '201':
+          description: Group assignment created
+        '400':
+          description: Invalid group assignment
+        '404':
+          description: Student, academic year or group not found
+
+  /students/{studentId}/courses:
+    get:
+      tags: [Students]
+      summary: Get courses actually followed by a student
+      description: >
+        STUDENT can access only their own courses. ADMIN can access any
+        student's courses. The result comes from persistent student course
+        enrollments and does not depend on the student's current group.
+      operationId: getStudentCourses
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: Courses actually followed by the student
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudentCourse'
+        '403':
+          description: Access denied
+        '404':
+          description: Student not found
+
+  /students/{studentId}/transcript:
+    get:
+      tags: [Students]
+      summary: Get student transcript
+      description: >
+        STUDENT can access only their own transcript. ADMIN can access
+        any student's transcript. Missing expected grades make the
+        transcript provisional or incomplete instead of treating them as zero.
+      operationId: getStudentTranscript
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: Student transcript
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transcript'
+        '403':
+          description: Access denied
+        '404':
+          description: Student not found
+
+  /students/{studentId}/transcript/email:
+    post:
+      tags: [Students]
+      summary: Generate and email transcript PDF
+      description: >
+        STUDENT can request their own transcript and ADMIN can request
+        any student's transcript. PDF generation is asynchronous.
+        The PDF is stored in AWS S3 through POJA File Storage and a link
+        is sent by email.
+      operationId: sendStudentTranscript
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '202':
+          description: Transcript generation accepted
+        '403':
+          description: Access denied
+        '404':
+          description: Student not found
+
+  /promotions:
+    get:
+      tags: [Academic]
+      summary: List promotions
+      operationId: getPromotions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Promotion list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Promotion'
+
+    post:
+      tags: [Academic]
+      summary: Create a promotion
+      description: ADMIN only.
+      operationId: createPromotion
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePromotionRequest'
+      responses:
+        '201':
+          description: Promotion created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Promotion'
+        '400':
+          description: Invalid promotion data
+
+  /promotions/{promotionId}:
+    patch:
+      tags: [Academic]
+      summary: Update a promotion
+      description: ADMIN only.
+      operationId: updatePromotion
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PromotionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePromotionRequest'
+      responses:
+        '200':
+          description: Promotion updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Promotion'
+        '404':
+          description: Promotion not found
+
+  /promotions/{promotionId}/results:
+    get:
+      tags: [Graduates]
+      summary: Get promotion results over the curriculum
+      description: >
+        ADMIN only. Returns the academic results of all students in the
+        promotion over their academic years, including averages, credits,
+        completeness and graduation status.
+      operationId: getPromotionResults
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PromotionId'
+      responses:
+        '200':
+          description: Promotion results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromotionResults'
+        '404':
+          description: Promotion not found
+
+  /promotions/{promotionId}/graduates:
+    get:
+      tags: [Graduates]
+      summary: Get graduates of a promotion
+      description: >
+        ADMIN only. A student is considered a graduate only when every
+        course actually followed during the curriculum is complete and
+        has a final grade greater than or equal to 10/20. No compensation
+        between courses is allowed.
+      operationId: getGraduates
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PromotionId'
+      responses:
+        '200':
+          description: Graduate list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Graduate'
+        '404':
+          description: Promotion not found
+
+  /promotions/{promotionId}/graduates.xlsx:
+    get:
+      tags: [Graduates]
+      summary: Download promotion graduates as XLSX
+      description: >
+        ADMIN only. Generates and directly downloads the XLSX graduate
+        list for the selected promotion without sending an email.
+      operationId: downloadGraduates
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PromotionId'
+      responses:
+        '200':
+          description: XLSX graduate list
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Promotion not found
+
+  /academic-years:
+    get:
+      tags: [Academic]
+      summary: List academic years
+      operationId: getAcademicYears
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Academic year list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AcademicYear'
+
+    post:
+      tags: [Academic]
+      summary: Create an academic year
+      description: ADMIN only.
+      operationId: createAcademicYear
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAcademicYearRequest'
+      responses:
+        '201':
+          description: Academic year created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicYear'
+        '400':
+          description: Invalid academic year data
+
+  /academic-years/{academicYearId}:
+    patch:
+      tags: [Academic]
+      summary: Update an academic year
+      description: ADMIN only.
+      operationId: updateAcademicYear
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AcademicYearId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAcademicYearRequest'
+      responses:
+        '200':
+          description: Academic year updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicYear'
+        '404':
+          description: Academic year not found
+
+  /groups:
+    get:
+      tags: [Academic]
+      summary: List groups
+      operationId: getGroups
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Group list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Group'
+
+    post:
+      tags: [Academic]
+      summary: Create a group
+      description: ADMIN only.
+      operationId: createGroup
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+      responses:
+        '201':
+          description: Group created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+
+  /groups/{groupId}:
+    patch:
+      tags: [Academic]
+      summary: Update a group
+      description: ADMIN only.
+      operationId: updateGroup
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupRequest'
+      responses:
+        '200':
+          description: Group updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '404':
+          description: Group not found
+
+  /courses:
+    get:
+      tags: [Courses]
+      summary: List courses
+      operationId: getCourses
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Course list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Course'
+
+    post:
+      tags: [Courses]
+      summary: Create a course
+      description: ADMIN only.
+      operationId: createCourse
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCourseRequest'
+      responses:
+        '201':
+          description: Course created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+
+  /courses/{courseId}:
+    patch:
+      tags: [Courses]
+      summary: Update a course
+      description: >
+        ADMIN only. Updates course metadata without recreating the course
+        or losing existing academic relationships.
+      operationId: updateCourse
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCourseRequest'
+      responses:
+        '200':
+          description: Course updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+        '404':
+          description: Course not found
+
+  /course-offerings:
+    get:
+      tags: [Courses]
+      summary: List course offerings
+      description: >
+        Lists course offerings and optionally filters them by academic year
+        and group. For a TEACHER, implementation must restrict results to
+        course offerings assigned to that teacher when appropriate.
+      operationId: getCourseOfferings
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: academicYearId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Course offering list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CourseOffering'
+
+    post:
+      tags: [Courses]
+      summary: Offer a course to a group
+      description: >
+        ADMIN only. Associates a course with one group and one academic year.
+      operationId: createCourseOffering
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCourseOfferingRequest'
+      responses:
+        '201':
+          description: Course offering created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseOffering'
+        '400':
+          description: Invalid or duplicate course offering
+
+  /course-offerings/{courseOfferingId}/teachers:
+    post:
+      tags: [Courses]
+      summary: Assign a teacher to a course offering
+      description: >
+        ADMIN only. Multiple teachers may be assigned to the same
+        course offering.
+      operationId: assignTeacher
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CourseOfferingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignTeacherRequest'
+      responses:
+        '201':
+          description: Teacher assigned
+        '400':
+          description: User is not a teacher or assignment already exists
+        '404':
+          description: Course offering or teacher not found
+
+  /course-offerings/{courseOfferingId}/exams:
+    get:
+      tags: [Exams]
+      summary: List exams of a course offering
+      description: >
+        ADMIN or TEACHER assigned to the course offering.
+      operationId: getExams
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CourseOfferingId'
+      responses:
+        '200':
+          description: Exam list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Exam'
+        '403':
+          description: Teacher is not assigned to this course offering
+
+    post:
+      tags: [Exams]
+      summary: Create an exam
+      description: >
+        ADMIN or TEACHER assigned to the course offering.
+        The coefficient must be greater than zero.
+      operationId: createExam
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CourseOfferingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExamRequest'
+      responses:
+        '201':
+          description: Exam created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exam'
+        '403':
+          description: Teacher is not assigned to this course offering
+
+  /exams/{examId}/grades:
+    get:
+      tags: [Grades]
+      summary: Get all grades for an exam
+      description: >
+        ADMIN or TEACHER assigned to the exam's course offering.
+        A teacher must never be able to access grades belonging to
+        another teacher's unassigned course offering.
+      operationId: getExamGrades
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ExamId'
+      responses:
+        '200':
+          description: Exam grades
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExamGrade'
+        '403':
+          description: Teacher is not assigned to this exam's course offering
+        '404':
+          description: Exam not found
+
+  /grades:
+    post:
+      tags: [Grades]
+      summary: Create or correct a grade
+      description: >
+        ADMIN or TEACHER assigned to the exam's course offering.
+        A teacher must not create or modify a grade for an unassigned course.
+        The first grade can be entered normally. If an existing score is
+        changed, correctionReason is mandatory and a GradeHistory entry must
+        be appended containing old score, new score, reason, author and date.
+      operationId: saveGrade
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveGradeRequest'
+      responses:
+        '200':
+          description: Existing grade corrected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Grade'
+        '201':
+          description: First grade created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Grade'
+        '400':
+          description: Invalid grade or missing correction reason
+        '403':
+          description: Teacher is not assigned to the exam's course offering
+        '404':
+          description: Exam or student course enrollment not found
+
+  /grades/{gradeId}/history:
+    get:
+      tags: [Grades]
+      summary: Get grade correction history
+      description: >
+        ADMIN or TEACHER authorized for the related course offering.
+        Returns the complete append-only history of corrections.
+      operationId: getGradeHistory
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GradeId'
+      responses:
+        '200':
+          description: Grade history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GradeHistoryEntry'
+        '403':
+          description: Access denied
+        '404':
+          description: Grade not found
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    StudentId:
+      name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    PromotionId:
+      name: promotionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    AcademicYearId:
+      name: academicYearId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    GroupId:
+      name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    CourseId:
+      name: courseId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    CourseOfferingId:
+      name: courseOfferingId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    ExamId:
+      name: examId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    GradeId:
+      name: gradeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required:
+        - token
+        - role
+      properties:
+        token:
+          type: string
+        role:
+          $ref: '#/components/schemas/UserRole'
+
+    UserRole:
+      type: string
+      enum:
+        - STUDENT
+        - TEACHER
+        - ADMIN
+
+    UserStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - DISABLED
+
+    Pathway:
+      type: string
+      enum:
+        - EL
+        - TN
+
+    CreateUserRequest:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - email
+        - password
+        - role
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        role:
+          $ref: '#/components/schemas/UserRole'
+        std:
+          type: string
+          nullable: true
+        promotionId:
+          type: string
+          format: uuid
+          nullable: true
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        std:
+          type: string
+          nullable: true
+        promotionId:
+          type: string
+          format: uuid
+          nullable: true
+
+    UpdateUserStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/UserStatus'
+
+    UpdateStudentRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        std:
+          type: string
+        promotionId:
+          type: string
+          format: uuid
+
+    StudentGroupAssignmentRequest:
+      type: object
+      required:
+        - academicYearId
+        - groupId
+        - startedAt
+      properties:
+        academicYearId:
+          type: string
+          format: uuid
+        groupId:
+          type: string
+          format: uuid
+        pathway:
+          allOf:
+            - $ref: '#/components/schemas/Pathway'
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+
+    Promotion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        startYear:
+          type: integer
+        endYear:
+          type: integer
+
+    CreatePromotionRequest:
+      type: object
+      required:
+        - name
+        - startYear
+        - endYear
+      properties:
+        name:
+          type: string
+        startYear:
+          type: integer
+        endYear:
+          type: integer
+
+    UpdatePromotionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        startYear:
+          type: integer
+        endYear:
+          type: integer
+
+    AcademicYear:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+
+    CreateAcademicYearRequest:
+      type: object
+      required:
+        - label
+        - startDate
+        - endDate
+      properties:
+        label:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+
+    UpdateAcademicYearRequest:
+      type: object
+      properties:
+        label:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+
+    Group:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ref:
+          type: string
+
+    CreateGroupRequest:
+      type: object
+      required:
+        - ref
+      properties:
+        ref:
+          type: string
+
+    UpdateGroupRequest:
+      type: object
+      properties:
+        ref:
+          type: string
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ref:
+          type: string
+        title:
+          type: string
+        credits:
+          type: integer
+
+    CreateCourseRequest:
+      type: object
+      required:
+        - ref
+        - title
+        - credits
+      properties:
+        ref:
+          type: string
+        title:
+          type: string
+        credits:
+          type: integer
+          minimum: 1
+
+    UpdateCourseRequest:
+      type: object
+      properties:
+        ref:
+          type: string
+        title:
+          type: string
+        credits:
+          type: integer
+          minimum: 1
+
+    CourseOffering:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        academicYearId:
+          type: string
+          format: uuid
+        groupId:
+          type: string
+          format: uuid
+
+    CreateCourseOfferingRequest:
+      type: object
+      required:
+        - courseId
+        - academicYearId
+        - groupId
+      properties:
+        courseId:
+          type: string
+          format: uuid
+        academicYearId:
+          type: string
+          format: uuid
+        groupId:
+          type: string
+          format: uuid
+
+    AssignTeacherRequest:
+      type: object
+      required:
+        - teacherId
+      properties:
+        teacherId:
+          type: string
+          format: uuid
+
+    Exam:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ref:
+          type: string
+        courseOfferingId:
+          type: string
+          format: uuid
+        coefficient:
+          type: number
+          format: double
+
+    CreateExamRequest:
+      type: object
+      required:
+        - ref
+        - coefficient
+      properties:
+        ref:
+          type: string
+        coefficient:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+
+    StudentCourse:
+      type: object
+      properties:
+        enrollmentId:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        ref:
+          type: string
+        title:
+          type: string
+        credits:
+          type: integer
+        academicYearId:
+          type: string
+          format: uuid
+        enrolledAt:
+          type: string
+          format: date-time
+
+    StudentGrade:
+      type: object
+      properties:
+        gradeId:
+          type: string
+          format: uuid
+        examId:
+          type: string
+          format: uuid
+        examRef:
+          type: string
+        courseId:
+          type: string
+          format: uuid
+        courseRef:
+          type: string
+        score:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 20
+        coefficient:
+          type: number
+
+    ExamGrade:
+      type: object
+      properties:
+        gradeId:
+          type: string
+          format: uuid
+          nullable: true
+        studentId:
+          type: string
+          format: uuid
+        studentCourseEnrollmentId:
+          type: string
+          format: uuid
+        std:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        score:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 20
+
+    SaveGradeRequest:
+      type: object
+      required:
+        - examId
+        - studentCourseEnrollmentId
+        - score
+      properties:
+        examId:
+          type: string
+          format: uuid
+        studentCourseEnrollmentId:
+          type: string
+          format: uuid
+        score:
+          type: number
+          minimum: 0
+          maximum: 20
+        correctionReason:
+          type: string
+          nullable: true
+
+    Grade:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        examId:
+          type: string
+          format: uuid
+        studentCourseEnrollmentId:
+          type: string
+          format: uuid
+        score:
+          type: number
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+
+    GradeHistoryEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        gradeId:
+          type: string
+          format: uuid
+        oldScore:
+          type: number
+          minimum: 0
+          maximum: 20
+        newScore:
+          type: number
+          minimum: 0
+          maximum: 20
+        reason:
+          type: string
+        changedBy:
+          type: string
+          format: uuid
+        changedAt:
+          type: string
+          format: date-time
+
+    Transcript:
+      type: object
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        complete:
+          type: boolean
+        annualAverage:
+          type: number
+          nullable: true
+        earnedCredits:
+          type: integer
+        courses:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranscriptCourse'
+
+    TranscriptCourse:
+      type: object
+      properties:
+        courseId:
+          type: string
+          format: uuid
+        ref:
+          type: string
+        title:
+          type: string
+        credits:
+          type: integer
+        finalGrade:
+          type: number
+          nullable: true
+        validated:
+          type: boolean
+          nullable: true
+
+    PromotionResults:
+      type: object
+      properties:
+        promotionId:
+          type: string
+          format: uuid
+        students:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromotionStudentResult'
+
+    PromotionStudentResult:
+      type: object
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        std:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        complete:
+          type: boolean
+        graduate:
+          type: boolean
+        academicYears:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudentAcademicYearResult'
+
+    StudentAcademicYearResult:
+      type: object
+      properties:
+        academicYearId:
+          type: string
+          format: uuid
+        academicYearLabel:
+          type: string
+        average:
+          type: number
+          nullable: true
+        earnedCredits:
+          type: integer
+        complete:
+          type: boolean
+
+    Graduate:
+      type: object
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        std:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        pathway:
+          allOf:
+            - $ref: '#/components/schemas/Pathway'
+          nullable: true
+        overallAverage:
+          type: number
