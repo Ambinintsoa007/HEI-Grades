@@ -1,0 +1,20 @@
+package com.example.demo.repository;
+
+import com.example.demo.repository.model.StudentCourseEnrollmentEntity;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface StudentCourseEnrollmentRepository
+    extends JpaRepository<StudentCourseEnrollmentEntity, UUID> {
+
+  List<StudentCourseEnrollmentEntity> findByStudent_IdAndAcademicYear_Id(
+      UUID studentId, UUID academicYearId);
+
+  List<StudentCourseEnrollmentEntity> findByStudent_Id(UUID studentId);
+
+  boolean existsByStudent_IdAndCourse_IdAndAcademicYear_Id(
+      UUID studentId, UUID courseId, UUID academicYearId);
+}
