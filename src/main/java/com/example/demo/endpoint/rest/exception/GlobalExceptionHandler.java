@@ -17,4 +17,10 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
         .body(new ApiErrorResponse(HttpStatus.UNAUTHORIZED.value(), "Invalid credentials"));
   }
+
+  @ExceptionHandler(ApiException.class)
+  public ResponseEntity<ApiErrorResponse> handleApiException(ApiException exception) {
+    return ResponseEntity.status(exception.getStatus())
+        .body(new ApiErrorResponse(exception.getStatus().value(), exception.getMessage()));
+  }
 }

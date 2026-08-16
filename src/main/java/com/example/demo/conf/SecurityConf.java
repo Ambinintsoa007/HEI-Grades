@@ -22,6 +22,8 @@ public class SecurityConf {
             auth ->
                 auth.requestMatchers("/auth/login", "/ping", "/health/**")
                     .permitAll()
+                    .requestMatchers("/users/**")
+                    .hasRole("ADMIN")
                     .anyRequest()
                     .authenticated())
         .oauth2ResourceServer(
