@@ -2,6 +2,7 @@ package com.example.demo.conf;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -23,6 +24,10 @@ public class SecurityConf {
                 auth.requestMatchers("/auth/login", "/ping", "/health/**")
                     .permitAll()
                     .requestMatchers("/users/**")
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.POST, "/promotions")
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.PATCH, "/promotions/**")
                     .hasRole("ADMIN")
                     .anyRequest()
                     .authenticated())
