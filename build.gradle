@@ -58,7 +58,7 @@ jacocoTestCoverageVerification {
         rule {
             limit {
                 counter = "LINE"
-                minimum = 0
+                minimum = 0.80
             }
         }
     }
@@ -154,5 +154,9 @@ dependencies {
     testImplementation 'org.junit-pioneer:junit-pioneer:2.2.0'
 
 
+    implementation 'org.springframework.boot:spring-boot-starter-security:3.2.2'
+    implementation 'org.springframework.boot:spring-boot-starter-validation:3.2.2'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server:3.2.2'
 
+    testImplementation 'org.springframework.security:spring-security-test'
 }
