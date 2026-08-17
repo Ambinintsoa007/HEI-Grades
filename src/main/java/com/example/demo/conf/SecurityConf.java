@@ -37,6 +37,10 @@ public class SecurityConf {
                     .hasRole("ADMIN")
                     .requestMatchers(HttpMethod.PATCH, "/groups/**")
                     .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.GET, "/students/me")
+                    .hasRole("STUDENT")
+                    .requestMatchers(HttpMethod.PATCH, "/students/**")
+                    .hasRole("ADMIN")
                     .anyRequest()
                     .authenticated())
         .oauth2ResourceServer(
