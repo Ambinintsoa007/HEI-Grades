@@ -33,6 +33,10 @@ public class SecurityConf {
                     .hasRole("ADMIN")
                     .requestMatchers(HttpMethod.PATCH, "/academic-years/**")
                     .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.POST, "/groups")
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.PATCH, "/groups/**")
+                    .hasRole("ADMIN")
                     .anyRequest()
                     .authenticated())
         .oauth2ResourceServer(

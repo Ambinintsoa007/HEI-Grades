@@ -12,4 +12,6 @@ public interface GroupRepository extends JpaRepository<GroupEntity, UUID> {
   Optional<GroupEntity> findByRefIgnoreCase(String ref);
 
   boolean existsByRefIgnoreCase(String ref);
+
+  boolean existsByRefIgnoreCaseAndIdNot(String ref, UUID id);
 }
