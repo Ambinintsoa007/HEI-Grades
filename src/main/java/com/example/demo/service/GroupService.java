@@ -3,14 +3,14 @@ package com.example.demo.service;
 import com.example.demo.endpoint.rest.dto.CreateGroupRequest;
 import com.example.demo.endpoint.rest.dto.GroupResponse;
 import com.example.demo.endpoint.rest.dto.UpdateGroupRequest;
-import com.example.demo.endpoint.rest.exception.ApiException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.GroupMapper;
 import com.example.demo.model.Group;
 import com.example.demo.repository.GroupRepository;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -29,7 +29,7 @@ public class GroupService {
 
   public GroupResponse create(CreateGroupRequest request) {
     if (groupRepository.existsByRefIgnoreCase(request.getRef())) {
-      throw new ApiException(HttpStatus.CONFLICT, "Group already exists");
+      throw new ConflictException("Group already exists");
     }
 
     Group group = Group.builder().id(UUID.randomUUID()).ref(request.getRef()).build();
@@ -42,12 +42,12 @@ public class GroupService {
         groupRepository
             .findById(groupId)
             .map(groupMapper::toDomain)
-            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Group not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Group not found"));
 
     String ref = request.getRef() != null ? request.getRef() : current.getRef();
 
     if (groupRepository.existsByRefIgnoreCaseAndIdNot(ref, groupId)) {
-      throw new ApiException(HttpStatus.CONFLICT, "Group already exists");
+      throw new ConflictException("Group already exists");
     }
 
     Group updated = Group.builder().id(current.getId()).ref(ref).build();

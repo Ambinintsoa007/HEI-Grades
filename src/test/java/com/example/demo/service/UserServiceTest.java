@@ -5,7 +5,9 @@ import static org.mockito.Mockito.*;
 
 import com.example.demo.endpoint.rest.dto.CreateUserRequest;
 import com.example.demo.endpoint.rest.dto.UpdateUserStatusRequest;
-import com.example.demo.endpoint.rest.exception.ApiException;
+import com.example.demo.endpoint.rest.exception.BusinessException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.UserMapper;
 import com.example.demo.model.User;
 import com.example.demo.model.UserRole;
@@ -17,7 +19,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 class UserServiceTest {
@@ -126,9 +127,7 @@ class UserServiceTest {
 
     when(userRepository.existsByEmailIgnoreCase(request.getEmail())).thenReturn(true);
 
-    ApiException exception = assertThrows(ApiException.class, () -> userService.create(request));
-
-    assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+    assertThrows(ConflictException.class, () -> userService.create(request));
   }
 
   @Test
@@ -136,9 +135,7 @@ class UserServiceTest {
     CreateUserRequest request = validStudentRequest();
     request.setStd(null);
 
-    ApiException exception = assertThrows(ApiException.class, () -> userService.create(request));
-
-    assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+    assertThrows(BusinessException.class, () -> userService.create(request));
   }
 
   @Test
@@ -146,9 +143,7 @@ class UserServiceTest {
     CreateUserRequest request = validStudentRequest();
     request.setPromotionId(null);
 
-    ApiException exception = assertThrows(ApiException.class, () -> userService.create(request));
-
-    assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+    assertThrows(BusinessException.class, () -> userService.create(request));
   }
 
   @Test
@@ -157,9 +152,7 @@ class UserServiceTest {
 
     when(userRepository.existsByStdIgnoreCase(request.getStd())).thenReturn(true);
 
-    ApiException exception = assertThrows(ApiException.class, () -> userService.create(request));
-
-    assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+    assertThrows(ConflictException.class, () -> userService.create(request));
   }
 
   @Test
@@ -169,9 +162,7 @@ class UserServiceTest {
     when(userRepository.existsByStdIgnoreCase(request.getStd())).thenReturn(false);
     when(promotionRepository.existsById(request.getPromotionId())).thenReturn(false);
 
-    ApiException exception = assertThrows(ApiException.class, () -> userService.create(request));
-
-    assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+    assertThrows(ResourceNotFoundException.class, () -> userService.create(request));
   }
 
   @Test
@@ -218,10 +209,7 @@ class UserServiceTest {
 
     when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-    ApiException exception =
-        assertThrows(ApiException.class, () -> userService.updateStatus(userId, request));
-
-    assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+    assertThrows(ResourceNotFoundException.class, () -> userService.updateStatus(userId, request));
   }
 
   private CreateUserRequest validStudentRequest() {

@@ -3,14 +3,15 @@ package com.example.demo.service;
 import com.example.demo.endpoint.rest.dto.CreatePromotionRequest;
 import com.example.demo.endpoint.rest.dto.PromotionResponse;
 import com.example.demo.endpoint.rest.dto.UpdatePromotionRequest;
-import com.example.demo.endpoint.rest.exception.ApiException;
+import com.example.demo.endpoint.rest.exception.BusinessException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.PromotionMapper;
 import com.example.demo.model.Promotion;
 import com.example.demo.repository.PromotionRepository;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -31,7 +32,7 @@ public class PromotionService {
     validateYears(request.getStartYear(), request.getEndYear());
 
     if (promotionRepository.existsByNameIgnoreCase(request.getName())) {
-      throw new ApiException(HttpStatus.CONFLICT, "Promotion already exists");
+      throw new ConflictException("Promotion already exists");
     }
 
     Promotion promotion =
@@ -51,7 +52,7 @@ public class PromotionService {
         promotionRepository
             .findById(promotionId)
             .map(promotionMapper::toDomain)
-            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Promotion not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
 
     String name = request.getName() != null ? request.getName() : current.getName();
     Integer startYear =
@@ -74,8 +75,7 @@ public class PromotionService {
 
   private void validateYears(Integer startYear, Integer endYear) {
     if (endYear < startYear) {
-      throw new ApiException(
-          HttpStatus.BAD_REQUEST, "Promotion end year must be greater than or equal to start year");
+      throw new BusinessException("Promotion end year must be greater than or equal to start year");
     }
   }
 

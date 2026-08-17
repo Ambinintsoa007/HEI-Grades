@@ -2,7 +2,8 @@ package com.example.demo.service;
 
 import com.example.demo.endpoint.rest.dto.UpdateStudentRequest;
 import com.example.demo.endpoint.rest.dto.UserResponse;
-import com.example.demo.endpoint.rest.exception.ApiException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.UserMapper;
 import com.example.demo.model.User;
 import com.example.demo.model.UserRole;
@@ -10,7 +11,6 @@ import com.example.demo.repository.PromotionRepository;
 import com.example.demo.repository.UserRepository;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -35,15 +35,15 @@ public class StudentService {
 
     if (!email.equalsIgnoreCase(current.getEmail())
         && userRepository.existsByEmailIgnoreCase(email)) {
-      throw new ApiException(HttpStatus.CONFLICT, "Email already exists");
+      throw new ConflictException("Email already exists");
     }
 
     if (!std.equalsIgnoreCase(current.getStd()) && userRepository.existsByStdIgnoreCase(std)) {
-      throw new ApiException(HttpStatus.CONFLICT, "STD already exists");
+      throw new ConflictException("STD already exists");
     }
 
     if (!promotionRepository.existsById(promotionId)) {
-      throw new ApiException(HttpStatus.NOT_FOUND, "Promotion not found");
+      throw new ResourceNotFoundException("Promotion not found");
     }
 
     User updated =
@@ -68,10 +68,10 @@ public class StudentService {
         userRepository
             .findById(studentId)
             .map(userMapper::toDomain)
-            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Student not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
 
     if (user.getRole() != UserRole.STUDENT) {
-      throw new ApiException(HttpStatus.NOT_FOUND, "Student not found");
+      throw new ResourceNotFoundException("Student not found");
     }
 
     return user;

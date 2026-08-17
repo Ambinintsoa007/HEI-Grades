@@ -5,7 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.example.demo.endpoint.rest.dto.UpdateStudentRequest;
-import com.example.demo.endpoint.rest.exception.ApiException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.UserMapper;
 import com.example.demo.model.User;
 import com.example.demo.model.UserRole;
@@ -17,7 +18,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
 
 class StudentServiceTest {
 
@@ -63,9 +63,7 @@ class StudentServiceTest {
     when(userRepository.findById(id)).thenReturn(Optional.of(entity));
     when(userMapper.toDomain(entity)).thenReturn(teacher);
 
-    ApiException exception = assertThrows(ApiException.class, () -> studentService.getStudent(id));
-
-    assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+    assertThrows(ResourceNotFoundException.class, () -> studentService.getStudent(id));
   }
 
   @Test
@@ -118,10 +116,7 @@ class StudentServiceTest {
     when(userMapper.toDomain(entity)).thenReturn(current);
     when(userRepository.existsByEmailIgnoreCase("existing@hei.school")).thenReturn(true);
 
-    ApiException exception =
-        assertThrows(ApiException.class, () -> studentService.update(studentId, request));
-
-    assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+    assertThrows(ConflictException.class, () -> studentService.update(studentId, request));
   }
 
   @Test
@@ -138,11 +133,9 @@ class StudentServiceTest {
     when(userRepository.findById(studentId)).thenReturn(Optional.of(entity));
     when(userMapper.toDomain(entity)).thenReturn(current);
     when(userRepository.existsByStdIgnoreCase("STD99999")).thenReturn(true);
+    when(promotionRepository.existsById(promotionId)).thenReturn(true);
 
-    ApiException exception =
-        assertThrows(ApiException.class, () -> studentService.update(studentId, request));
-
-    assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+    assertThrows(ConflictException.class, () -> studentService.update(studentId, request));
   }
 
   @Test
@@ -161,10 +154,7 @@ class StudentServiceTest {
     when(userMapper.toDomain(entity)).thenReturn(current);
     when(promotionRepository.existsById(newPromotionId)).thenReturn(false);
 
-    ApiException exception =
-        assertThrows(ApiException.class, () -> studentService.update(studentId, request));
-
-    assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+    assertThrows(ResourceNotFoundException.class, () -> studentService.update(studentId, request));
   }
 
   private User student(UUID id, UUID promotionId) {

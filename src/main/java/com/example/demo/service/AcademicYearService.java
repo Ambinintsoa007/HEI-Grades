@@ -3,7 +3,9 @@ package com.example.demo.service;
 import com.example.demo.endpoint.rest.dto.AcademicYearResponse;
 import com.example.demo.endpoint.rest.dto.CreateAcademicYearRequest;
 import com.example.demo.endpoint.rest.dto.UpdateAcademicYearRequest;
-import com.example.demo.endpoint.rest.exception.ApiException;
+import com.example.demo.endpoint.rest.exception.BusinessException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.AcademicYearMapper;
 import com.example.demo.model.AcademicYear;
 import com.example.demo.repository.AcademicYearRepository;
@@ -11,7 +13,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -32,7 +33,7 @@ public class AcademicYearService {
     validateDates(request.getStartDate(), request.getEndDate());
 
     if (academicYearRepository.existsByLabelIgnoreCase(request.getLabel())) {
-      throw new ApiException(HttpStatus.CONFLICT, "Academic year already exists");
+      throw new ConflictException("Academic year already exists");
     }
 
     AcademicYear academicYear =
@@ -54,7 +55,7 @@ public class AcademicYearService {
         academicYearRepository
             .findById(academicYearId)
             .map(academicYearMapper::toDomain)
-            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Academic year not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Academic year not found"));
 
     String label = request.getLabel() != null ? request.getLabel() : current.getLabel();
 
@@ -80,8 +81,7 @@ public class AcademicYearService {
 
   private void validateDates(LocalDate startDate, LocalDate endDate) {
     if (endDate.isBefore(startDate)) {
-      throw new ApiException(
-          HttpStatus.BAD_REQUEST, "Academic year end date must be after start date");
+      throw new BusinessException("Academic year end date must be after start date");
     }
   }
 

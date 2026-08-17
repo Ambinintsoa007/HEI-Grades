@@ -6,7 +6,9 @@ import static org.mockito.Mockito.*;
 
 import com.example.demo.endpoint.rest.dto.CreatePromotionRequest;
 import com.example.demo.endpoint.rest.dto.UpdatePromotionRequest;
-import com.example.demo.endpoint.rest.exception.ApiException;
+import com.example.demo.endpoint.rest.exception.BusinessException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.PromotionMapper;
 import com.example.demo.model.Promotion;
 import com.example.demo.repository.PromotionRepository;
@@ -16,7 +18,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
 
 class PromotionServiceTest {
 
@@ -91,10 +92,7 @@ class PromotionServiceTest {
 
     when(promotionRepository.existsByNameIgnoreCase("2025")).thenReturn(true);
 
-    ApiException exception =
-        assertThrows(ApiException.class, () -> promotionService.create(request));
-
-    assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+    assertThrows(ConflictException.class, () -> promotionService.create(request));
   }
 
   @Test
@@ -104,10 +102,18 @@ class PromotionServiceTest {
     request.setStartYear(2028);
     request.setEndYear(2025);
 
-    ApiException exception =
-        assertThrows(ApiException.class, () -> promotionService.create(request));
+    assertThrows(BusinessException.class, () -> promotionService.create(request));
+  }
 
-    assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+  @Test
+  void shouldRejectUnknownPromotionOnUpdate() {
+    UUID id = UUID.randomUUID();
+
+    when(promotionRepository.findById(id)).thenReturn(Optional.empty());
+
+    assertThrows(
+        ResourceNotFoundException.class,
+        () -> promotionService.update(id, new UpdatePromotionRequest()));
   }
 
   @Test
@@ -133,18 +139,5 @@ class PromotionServiceTest {
     var result = promotionService.update(id, request);
 
     assertEquals("Promotion 2025", result.getName());
-  }
-
-  @Test
-  void shouldRejectUnknownPromotionOnUpdate() {
-    UUID id = UUID.randomUUID();
-
-    when(promotionRepository.findById(id)).thenReturn(Optional.empty());
-
-    ApiException exception =
-        assertThrows(
-            ApiException.class, () -> promotionService.update(id, new UpdatePromotionRequest()));
-
-    assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
   }
 }

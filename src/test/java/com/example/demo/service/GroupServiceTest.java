@@ -6,7 +6,8 @@ import static org.mockito.Mockito.*;
 
 import com.example.demo.endpoint.rest.dto.CreateGroupRequest;
 import com.example.demo.endpoint.rest.dto.UpdateGroupRequest;
-import com.example.demo.endpoint.rest.exception.ApiException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.GroupMapper;
 import com.example.demo.model.Group;
 import com.example.demo.repository.GroupRepository;
@@ -16,7 +17,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
 
 class GroupServiceTest {
 
@@ -73,9 +73,7 @@ class GroupServiceTest {
 
     when(groupRepository.existsByRefIgnoreCase("K1")).thenReturn(true);
 
-    ApiException exception = assertThrows(ApiException.class, () -> groupService.create(request));
-
-    assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+    assertThrows(ConflictException.class, () -> groupService.create(request));
   }
 
   @Test
@@ -115,10 +113,7 @@ class GroupServiceTest {
     when(groupMapper.toDomain(entity)).thenReturn(current);
     when(groupRepository.existsByRefIgnoreCaseAndIdNot("K2", id)).thenReturn(true);
 
-    ApiException exception =
-        assertThrows(ApiException.class, () -> groupService.update(id, request));
-
-    assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+    assertThrows(ConflictException.class, () -> groupService.update(id, request));
   }
 
   @Test
@@ -127,9 +122,7 @@ class GroupServiceTest {
 
     when(groupRepository.findById(id)).thenReturn(Optional.empty());
 
-    ApiException exception =
-        assertThrows(ApiException.class, () -> groupService.update(id, new UpdateGroupRequest()));
-
-    assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+    assertThrows(
+        ResourceNotFoundException.class, () -> groupService.update(id, new UpdateGroupRequest()));
   }
 }

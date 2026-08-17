@@ -6,7 +6,9 @@ import static org.mockito.Mockito.*;
 
 import com.example.demo.endpoint.rest.dto.CreateAcademicYearRequest;
 import com.example.demo.endpoint.rest.dto.UpdateAcademicYearRequest;
-import com.example.demo.endpoint.rest.exception.ApiException;
+import com.example.demo.endpoint.rest.exception.BusinessException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.AcademicYearMapper;
 import com.example.demo.model.AcademicYear;
 import com.example.demo.repository.AcademicYearRepository;
@@ -17,7 +19,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
 
 class AcademicYearServiceTest {
 
@@ -87,10 +88,7 @@ class AcademicYearServiceTest {
 
     when(academicYearRepository.existsByLabelIgnoreCase(request.getLabel())).thenReturn(true);
 
-    ApiException exception =
-        assertThrows(ApiException.class, () -> academicYearService.create(request));
-
-    assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+    assertThrows(ConflictException.class, () -> academicYearService.create(request));
   }
 
   @Test
@@ -99,10 +97,7 @@ class AcademicYearServiceTest {
     request.setStartDate(LocalDate.of(2026, 9, 1));
     request.setEndDate(LocalDate.of(2026, 7, 1));
 
-    ApiException exception =
-        assertThrows(ApiException.class, () -> academicYearService.create(request));
-
-    assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+    assertThrows(BusinessException.class, () -> academicYearService.create(request));
   }
 
   @Test
@@ -145,12 +140,9 @@ class AcademicYearServiceTest {
 
     when(academicYearRepository.findById(id)).thenReturn(Optional.empty());
 
-    ApiException exception =
-        assertThrows(
-            ApiException.class,
-            () -> academicYearService.update(id, new UpdateAcademicYearRequest()));
-
-    assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+    assertThrows(
+        ResourceNotFoundException.class,
+        () -> academicYearService.update(id, new UpdateAcademicYearRequest()));
   }
 
   private CreateAcademicYearRequest validRequest() {
