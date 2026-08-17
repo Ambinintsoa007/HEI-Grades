@@ -1,6 +1,7 @@
 package com.example.demo.repository;
 
 import com.example.demo.repository.model.UserEntity;
+import com.example.demo.repository.model.UserRoleEntity;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,4 +17,6 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
   Optional<UserEntity> findByStdIgnoreCase(String std);
 
   boolean existsByStdIgnoreCase(String std);
+
+  boolean existsByRole(UserRoleEntity role);
 }

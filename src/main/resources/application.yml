@@ -32,3 +32,10 @@ app:
   jwt:
     secret: ${JWT_SECRET}
     expiration-seconds: 3600
+
+  bootstrap-admin:
+    enabled: ${BOOTSTRAP_ADMIN_ENABLED:false}
+    first-name: ${BOOTSTRAP_ADMIN_FIRST_NAME:}
+    last-name: ${BOOTSTRAP_ADMIN_LAST_NAME:}
+    email: ${BOOTSTRAP_ADMIN_EMAIL:}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD:}

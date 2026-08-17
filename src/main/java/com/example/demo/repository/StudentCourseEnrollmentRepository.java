@@ -17,4 +17,6 @@ public interface StudentCourseEnrollmentRepository
 
   boolean existsByStudent_IdAndCourse_IdAndAcademicYear_Id(
       UUID studentId, UUID courseId, UUID academicYearId);
+
+  List<StudentCourseEnrollmentEntity> findAllByStudent_Id(UUID studentId);
 }
