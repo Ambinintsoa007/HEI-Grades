@@ -1,3 +1,5 @@
 package com.example.demo.endpoint.rest.dto;
 
-public record UpdateCourseRequest(String ref, String title, Integer credits) {}
+import jakarta.validation.constraints.Min;
+
+public record UpdateCourseRequest(String ref, String title, @Min(1) Integer credits) {}

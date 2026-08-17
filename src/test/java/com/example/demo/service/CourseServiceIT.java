@@ -8,8 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.example.demo.CourseManagementTestBase;
 import com.example.demo.endpoint.rest.dto.CreateCourseRequest;
 import com.example.demo.endpoint.rest.dto.UpdateCourseRequest;
-import com.example.demo.service.exception.BusinessException;
-import com.example.demo.service.exception.ResourceNotFoundException;
+import com.example.demo.endpoint.rest.exception.BusinessException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,7 +58,7 @@ class CourseServiceIT extends CourseManagementTestBase {
     courseService.createCourse(new CreateCourseRequest("CRS-SVC-4", "Algo", 5));
 
     assertThrows(
-        BusinessException.class,
+        ConflictException.class,
         () -> courseService.createCourse(new CreateCourseRequest("crs-svc-4", "Other", 3)));
   }
 
@@ -99,7 +100,7 @@ class CourseServiceIT extends CourseManagementTestBase {
     var other = courseService.createCourse(new CreateCourseRequest("CRS-SVC-8", "B", 3));
 
     assertThrows(
-        BusinessException.class,
+        ConflictException.class,
         () ->
             courseService.updateCourse(
                 other.getId(), new UpdateCourseRequest("crs-svc-7", null, null)));

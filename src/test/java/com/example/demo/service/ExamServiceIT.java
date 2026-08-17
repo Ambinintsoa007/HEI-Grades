@@ -7,8 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.example.demo.CourseManagementTestBase;
 import com.example.demo.endpoint.rest.dto.CreateCourseOfferingRequest;
 import com.example.demo.endpoint.rest.dto.CreateExamRequest;
-import com.example.demo.service.exception.BusinessException;
-import com.example.demo.service.exception.ResourceNotFoundException;
+import com.example.demo.endpoint.rest.exception.BusinessException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -70,7 +71,7 @@ class ExamServiceIT extends CourseManagementTestBase {
     examService.createExam(offeringId, new CreateExamRequest("DS", BigDecimal.ONE));
 
     assertThrows(
-        BusinessException.class,
+        ConflictException.class,
         () -> examService.createExam(offeringId, new CreateExamRequest("ds", BigDecimal.TEN)));
   }
 

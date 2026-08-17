@@ -2,12 +2,13 @@ package com.example.demo.service;
 
 import com.example.demo.endpoint.rest.dto.CreateCourseRequest;
 import com.example.demo.endpoint.rest.dto.UpdateCourseRequest;
+import com.example.demo.endpoint.rest.exception.BusinessException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.CourseMapper;
 import com.example.demo.model.Course;
 import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.model.CourseEntity;
-import com.example.demo.service.exception.BusinessException;
-import com.example.demo.service.exception.ResourceNotFoundException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -36,7 +37,7 @@ public class CourseService {
     validateTitle(request.title());
     validateCredits(request.credits());
     if (courseRepository.existsByRefIgnoreCase(request.ref())) {
-      throw new BusinessException("Course ref already exists: " + request.ref());
+      throw new ConflictException("Course ref already exists: " + request.ref());
     }
     Course course =
         Course.builder()
@@ -58,7 +59,7 @@ public class CourseService {
       validateRef(request.ref());
       if (courseRepository.existsByRefIgnoreCase(request.ref())
           && !entity.getRef().equalsIgnoreCase(request.ref())) {
-        throw new BusinessException("Course ref already exists: " + request.ref());
+        throw new ConflictException("Course ref already exists: " + request.ref());
       }
       entity.setRef(request.ref());
     }

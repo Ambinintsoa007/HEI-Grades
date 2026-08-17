@@ -6,9 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.example.demo.CourseManagementTestBase;
 import com.example.demo.endpoint.rest.dto.CreateCourseOfferingRequest;
+import com.example.demo.endpoint.rest.exception.BusinessException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.repository.model.UserRoleEntity;
-import com.example.demo.service.exception.BusinessException;
-import com.example.demo.service.exception.ResourceNotFoundException;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,7 +59,7 @@ class TeacherAssignmentServiceIT extends CourseManagementTestBase {
     teacherAssignmentService.assignTeacher(offeringId, teacher.getId());
 
     assertThrows(
-        BusinessException.class,
+        ConflictException.class,
         () -> teacherAssignmentService.assignTeacher(offeringId, teacher.getId()));
   }
 

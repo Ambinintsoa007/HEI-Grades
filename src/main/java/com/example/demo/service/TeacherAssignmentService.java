@@ -1,5 +1,8 @@
 package com.example.demo.service;
 
+import com.example.demo.endpoint.rest.exception.BusinessException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.CourseOfferingTeacherMapper;
 import com.example.demo.model.CourseOfferingTeacher;
 import com.example.demo.repository.CourseOfferingRepository;
@@ -7,8 +10,6 @@ import com.example.demo.repository.CourseOfferingTeacherRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.model.UserEntity;
 import com.example.demo.repository.model.UserRoleEntity;
-import com.example.demo.service.exception.BusinessException;
-import com.example.demo.service.exception.ResourceNotFoundException;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,7 +39,7 @@ public class TeacherAssignmentService {
     }
     if (courseOfferingTeacherRepository.existsByCourseOffering_IdAndTeacher_Id(
         courseOfferingId, teacherId)) {
-      throw new BusinessException("Teacher is already assigned to this course offering");
+      throw new ConflictException("Teacher is already assigned to this course offering");
     }
     CourseOfferingTeacher assignment =
         CourseOfferingTeacher.builder()

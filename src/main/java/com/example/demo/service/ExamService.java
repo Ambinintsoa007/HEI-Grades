@@ -1,12 +1,13 @@
 package com.example.demo.service;
 
 import com.example.demo.endpoint.rest.dto.CreateExamRequest;
+import com.example.demo.endpoint.rest.exception.BusinessException;
+import com.example.demo.endpoint.rest.exception.ConflictException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.ExamMapper;
 import com.example.demo.model.Exam;
 import com.example.demo.repository.CourseOfferingRepository;
 import com.example.demo.repository.ExamRepository;
-import com.example.demo.service.exception.BusinessException;
-import com.example.demo.service.exception.ResourceNotFoundException;
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
@@ -44,7 +45,7 @@ public class ExamService {
     if (examRepository
         .findByCourseOffering_IdAndRefIgnoreCase(courseOfferingId, request.ref())
         .isPresent()) {
-      throw new BusinessException(
+      throw new ConflictException(
           "Exam ref already exists for this course offering: " + request.ref());
     }
     Exam exam =

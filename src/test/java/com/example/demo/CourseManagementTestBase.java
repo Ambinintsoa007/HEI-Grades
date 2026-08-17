@@ -13,10 +13,14 @@ import com.example.demo.repository.model.PromotionEntity;
 import com.example.demo.repository.model.UserEntity;
 import com.example.demo.repository.model.UserRoleEntity;
 import com.example.demo.repository.model.UserStatusEntity;
+import com.example.demo.service.JwtService;
 import java.time.LocalDate;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.test.context.ActiveProfiles;
 
+@ActiveProfiles("test")
 public abstract class CourseManagementTestBase extends FacadeIT {
 
   @Autowired protected CourseRepository courseRepository;
@@ -24,6 +28,25 @@ public abstract class CourseManagementTestBase extends FacadeIT {
   @Autowired protected GroupRepository groupRepository;
   @Autowired protected PromotionRepository promotionRepository;
   @Autowired protected UserRepository userRepository;
+  @Autowired protected JwtService jwtService;
+
+  protected UserEntity saveAdmin() {
+    return saveUser("admin-" + UUID.randomUUID() + "@test.com", UserRoleEntity.ADMIN);
+  }
+
+  protected UserEntity saveTeacher() {
+    return saveUser("teacher-" + UUID.randomUUID() + "@test.com", UserRoleEntity.TEACHER);
+  }
+
+  protected UserEntity saveStudent() {
+    return saveUser("student-" + UUID.randomUUID() + "@test.com", UserRoleEntity.STUDENT);
+  }
+
+  protected HttpHeaders authHeaders(UserEntity user) {
+    var headers = new HttpHeaders();
+    headers.setBearerAuth(jwtService.generateToken(user.getId(), user.getRole().name()));
+    return headers;
+  }
 
   protected CourseEntity saveCourse(String ref, int credits) {
     return courseRepository.save(

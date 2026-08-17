@@ -4,6 +4,7 @@ import com.example.demo.endpoint.rest.dto.CourseResponse;
 import com.example.demo.endpoint.rest.dto.CreateCourseRequest;
 import com.example.demo.endpoint.rest.dto.UpdateCourseRequest;
 import com.example.demo.service.CourseService;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -18,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @AllArgsConstructor
-public class CourseController extends ApiExceptionHandler {
+public class CourseController {
 
   private final CourseService courseService;
 
@@ -28,14 +29,15 @@ public class CourseController extends ApiExceptionHandler {
   }
 
   @PostMapping("/courses")
-  public ResponseEntity<CourseResponse> createCourse(@RequestBody CreateCourseRequest request) {
+  public ResponseEntity<CourseResponse> createCourse(
+      @Valid @RequestBody CreateCourseRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(CourseResponse.from(courseService.createCourse(request)));
   }
 
   @PatchMapping("/courses/{courseId}")
   public CourseResponse updateCourse(
-      @PathVariable UUID courseId, @RequestBody UpdateCourseRequest request) {
+      @PathVariable UUID courseId, @Valid @RequestBody UpdateCourseRequest request) {
     return CourseResponse.from(courseService.updateCourse(courseId, request));
   }
 }
