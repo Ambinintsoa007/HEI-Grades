@@ -87,29 +87,52 @@ public class CourseOfferingService {
             .build();
     CourseOfferingEntity saved =
         courseOfferingRepository.save(courseOfferingMapper.toEntity(offering));
-    enrollExistingStudents(request.courseId(), request.academicYearId(), request.groupId());
+
+    enrollExistingStudents(saved);
+
     return courseOfferingMapper.toDomain(saved);
   }
 
-  private void enrollExistingStudents(UUID courseId, UUID academicYearId, UUID groupId) {
+  private void enrollExistingStudents(CourseOfferingEntity offering) {
+    UUID courseId = offering.getCourse().getId();
+    UUID academicYearId = offering.getAcademicYear().getId();
+    UUID groupId = offering.getGroup().getId();
+
     var histories =
         studentGroupHistoryRepository.findByAcademicYear_IdAndGroup_Id(academicYearId, groupId);
+
     for (var history : histories) {
       UUID studentId = history.getStudent().getId();
-      boolean exists =
-          studentCourseEnrollmentRepository.existsByStudent_IdAndCourse_IdAndAcademicYear_Id(
+
+      var existingEnrollment =
+          studentCourseEnrollmentRepository.findByStudent_IdAndCourse_IdAndAcademicYear_Id(
               studentId, courseId, academicYearId);
-      if (exists) {
+
+      if (existingEnrollment.isPresent()) {
+        var enrollment = existingEnrollment.get();
+
+        boolean alreadyLinked =
+            enrollment.getCourseOfferings().stream()
+                .anyMatch(existing -> existing.getId().equals(offering.getId()));
+
+        if (!alreadyLinked) {
+          enrollment.getCourseOfferings().add(offering);
+          studentCourseEnrollmentRepository.save(enrollment);
+        }
+
         continue;
       }
+
       StudentCourseEnrollment enrollment =
           StudentCourseEnrollment.builder()
               .id(UUID.randomUUID())
               .studentId(studentId)
               .courseId(courseId)
               .academicYearId(academicYearId)
+              .courseOfferingIds(Set.of(offering.getId()))
               .enrolledAt(history.getStartedAt())
               .build();
+
       studentCourseEnrollmentRepository.save(studentCourseEnrollmentMapper.toEntity(enrollment));
     }
   }

@@ -13,8 +13,10 @@ import com.example.demo.mapper.StudentGroupHistoryMapper;
 import com.example.demo.mapper.UserMapper;
 import com.example.demo.model.*;
 import com.example.demo.repository.*;
+import com.example.demo.repository.model.CourseOfferingEntity;
 import com.example.demo.repository.model.PathwayEntity;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -149,14 +151,25 @@ public class StudentService {
         courseOfferingRepository.findByAcademicYear_IdAndGroup_Id(
             request.getAcademicYearId(), request.getGroupId());
 
-    for (var offering : offerings) {
+    for (CourseOfferingEntity offering : offerings) {
       UUID courseId = offering.getCourse().getId();
 
-      boolean alreadyEnrolled =
-          studentCourseEnrollmentRepository.existsByStudent_IdAndCourse_IdAndAcademicYear_Id(
+      var existingEnrollment =
+          studentCourseEnrollmentRepository.findByStudent_IdAndCourse_IdAndAcademicYear_Id(
               studentId, courseId, request.getAcademicYearId());
 
-      if (alreadyEnrolled) {
+      if (existingEnrollment.isPresent()) {
+        var enrollment = existingEnrollment.get();
+
+        boolean alreadyLinked =
+            enrollment.getCourseOfferings().stream()
+                .anyMatch(existing -> existing.getId().equals(offering.getId()));
+
+        if (!alreadyLinked) {
+          enrollment.getCourseOfferings().add(offering);
+          studentCourseEnrollmentRepository.save(enrollment);
+        }
+
         continue;
       }
 
@@ -166,6 +179,7 @@ public class StudentService {
               .studentId(studentId)
               .courseId(courseId)
               .academicYearId(request.getAcademicYearId())
+              .courseOfferingIds(Set.of(offering.getId()))
               .enrolledAt(request.getStartedAt())
               .build();
 

@@ -2,6 +2,7 @@ package com.example.demo.repository;
 
 import com.example.demo.repository.model.StudentCourseEnrollmentEntity;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -19,4 +20,7 @@ public interface StudentCourseEnrollmentRepository
       UUID studentId, UUID courseId, UUID academicYearId);
 
   List<StudentCourseEnrollmentEntity> findAllByStudent_Id(UUID studentId);
+
+  Optional<StudentCourseEnrollmentEntity> findByStudent_IdAndCourse_IdAndAcademicYear_Id(
+      UUID studentId, UUID courseId, UUID academicYearId);
 }
