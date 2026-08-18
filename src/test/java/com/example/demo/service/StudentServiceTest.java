@@ -334,6 +334,97 @@ class StudentServiceTest {
     verify(studentCourseEnrollmentRepository, never()).save(any());
   }
 
+  @Test
+  void shouldAllowSameGroupAndPathwayInNewAcademicYear() {
+    UUID studentId = UUID.randomUUID();
+    UUID promotionId = UUID.randomUUID();
+    UUID yearA = UUID.randomUUID();
+    UUID yearB = UUID.randomUUID();
+    UUID groupId = UUID.randomUUID();
+
+    UserEntity userEntity = new UserEntity();
+    StudentGroupHistoryEntity currentEntity = mock(StudentGroupHistoryEntity.class);
+    StudentGroupHistoryEntity newHistoryEntity = mock(StudentGroupHistoryEntity.class);
+    AcademicYearEntity yearAEntity = mock(AcademicYearEntity.class);
+    GroupEntity groupEntity = mock(GroupEntity.class);
+    Instant startedAt = Instant.now();
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(userEntity));
+    when(userMapper.toDomain(userEntity)).thenReturn(student(studentId, promotionId));
+
+    when(academicYearRepository.existsById(yearB)).thenReturn(true);
+    when(groupRepository.existsById(groupId)).thenReturn(true);
+
+    when(studentGroupHistoryRepository.findByStudent_IdAndEndedAtIsNull(studentId))
+        .thenReturn(Optional.of(currentEntity));
+
+    when(currentEntity.getAcademicYear()).thenReturn(yearAEntity);
+    when(yearAEntity.getId()).thenReturn(yearA);
+    when(currentEntity.getGroup()).thenReturn(groupEntity);
+    when(groupEntity.getId()).thenReturn(groupId);
+    when(currentEntity.getPathway()).thenReturn(PathwayEntity.EL);
+    when(currentEntity.getStartedAt()).thenReturn(startedAt.minusSeconds(60));
+
+    when(courseOfferingRepository.findByAcademicYear_IdAndGroup_Id(yearB, groupId))
+        .thenReturn(List.of());
+
+    when(studentGroupHistoryMapper.toEntity(any(StudentGroupHistory.class)))
+        .thenReturn(newHistoryEntity);
+
+    StudentGroupAssignmentRequest request = new StudentGroupAssignmentRequest();
+    request.setAcademicYearId(yearB);
+    request.setGroupId(groupId);
+    request.setPathway(Pathway.EL);
+    request.setStartedAt(startedAt);
+
+    assertDoesNotThrow(() -> studentService.assignGroup(studentId, request));
+
+    verify(currentEntity).setEndedAt(startedAt);
+    verify(studentGroupHistoryRepository).save(newHistoryEntity);
+    verify(studentCourseEnrollmentRepository, never()).save(any());
+  }
+
+  @Test
+  void shouldRejectSameGroupAndPathwayInSameAcademicYear() {
+    UUID studentId = UUID.randomUUID();
+    UUID promotionId = UUID.randomUUID();
+    UUID academicYearId = UUID.randomUUID();
+    UUID groupId = UUID.randomUUID();
+
+    UserEntity userEntity = new UserEntity();
+    StudentGroupHistoryEntity currentEntity = mock(StudentGroupHistoryEntity.class);
+    AcademicYearEntity yearEntity = mock(AcademicYearEntity.class);
+    GroupEntity groupEntity = mock(GroupEntity.class);
+    Instant startedAt = Instant.now();
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(userEntity));
+    when(userMapper.toDomain(userEntity)).thenReturn(student(studentId, promotionId));
+
+    when(academicYearRepository.existsById(academicYearId)).thenReturn(true);
+    when(groupRepository.existsById(groupId)).thenReturn(true);
+
+    when(studentGroupHistoryRepository.findByStudent_IdAndEndedAtIsNull(studentId))
+        .thenReturn(Optional.of(currentEntity));
+
+    when(currentEntity.getAcademicYear()).thenReturn(yearEntity);
+    when(yearEntity.getId()).thenReturn(academicYearId);
+    when(currentEntity.getGroup()).thenReturn(groupEntity);
+    when(groupEntity.getId()).thenReturn(groupId);
+    when(currentEntity.getPathway()).thenReturn(PathwayEntity.EL);
+    when(currentEntity.getStartedAt()).thenReturn(startedAt.minusSeconds(60));
+
+    StudentGroupAssignmentRequest request = new StudentGroupAssignmentRequest();
+    request.setAcademicYearId(academicYearId);
+    request.setGroupId(groupId);
+    request.setPathway(Pathway.EL);
+    request.setStartedAt(startedAt);
+
+    assertThrows(ConflictException.class, () -> studentService.assignGroup(studentId, request));
+
+    verify(currentEntity, never()).setEndedAt(any());
+    verify(studentGroupHistoryRepository, never()).save(any());
+  }
+
   private User student(UUID id, UUID promotionId) {
     return User.builder()
         .id(id)

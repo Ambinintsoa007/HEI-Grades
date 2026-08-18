@@ -118,7 +118,8 @@ public class StudentService {
                     "New group assignment cannot start before current assignment");
               }
 
-              if (current.getGroup().getId().equals(request.getGroupId())
+              if (current.getAcademicYear().getId().equals(request.getAcademicYearId())
+                  && current.getGroup().getId().equals(request.getGroupId())
                   && samePathway(current.getPathway(), request.getPathway())) {
                 throw new ConflictException("Student is already assigned to this group");
               }

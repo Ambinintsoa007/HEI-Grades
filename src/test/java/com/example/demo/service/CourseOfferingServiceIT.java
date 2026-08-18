@@ -10,6 +10,13 @@ import com.example.demo.endpoint.rest.dto.CreateCourseOfferingRequest;
 import com.example.demo.endpoint.rest.exception.ConflictException;
 import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.model.UserRole;
+import com.example.demo.repository.StudentCourseEnrollmentRepository;
+import com.example.demo.repository.StudentGroupHistoryRepository;
+import com.example.demo.repository.model.PathwayEntity;
+import com.example.demo.repository.model.StudentCourseEnrollmentEntity;
+import com.example.demo.repository.model.StudentGroupHistoryEntity;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +25,8 @@ class CourseOfferingServiceIT extends CourseManagementTestBase {
 
   @Autowired private CourseOfferingService courseOfferingService;
   @Autowired private TeacherAssignmentService teacherAssignmentService;
+  @Autowired private StudentGroupHistoryRepository studentGroupHistoryRepository;
+  @Autowired private StudentCourseEnrollmentRepository studentCourseEnrollmentRepository;
 
   @Test
   void create_offering_success() {
@@ -143,5 +152,65 @@ class CourseOfferingServiceIT extends CourseManagementTestBase {
     var unassignedTeacherList =
         courseOfferingService.listCourseOfferings(otherTeacherId, UserRole.TEACHER, null, null);
     assertEquals(0, unassignedTeacherList.size());
+  }
+
+  @Test
+  void create_offering_backfills_students_already_in_group() {
+    var student = saveStudent();
+    var course = saveCourse("CRS-BF-1", 5);
+    var year = saveAcademicYear("AY-BF-1");
+    var group = saveGroup("G-BF-1");
+    Instant startedAt = Instant.now().minusSeconds(3600);
+    studentGroupHistoryRepository.save(
+        StudentGroupHistoryEntity.builder()
+            .id(UUID.randomUUID())
+            .student(student)
+            .academicYear(year)
+            .group(group)
+            .pathway(PathwayEntity.EL)
+            .startedAt(startedAt)
+            .endedAt(startedAt.plusSeconds(1800))
+            .build());
+
+    courseOfferingService.createCourseOffering(
+        new CreateCourseOfferingRequest(course.getId(), year.getId(), group.getId()));
+
+    var enrollments = studentCourseEnrollmentRepository.findAllByStudent_Id(student.getId());
+    assertEquals(1, enrollments.size());
+    assertEquals(course.getId(), enrollments.get(0).getCourse().getId());
+    assertEquals(year.getId(), enrollments.get(0).getAcademicYear().getId());
+    assertEquals(
+        startedAt.truncatedTo(ChronoUnit.MILLIS),
+        enrollments.get(0).getEnrolledAt().truncatedTo(ChronoUnit.MILLIS));
+  }
+
+  @Test
+  void create_offering_does_not_duplicate_existing_enrollment() {
+    var student = saveStudent();
+    var course = saveCourse("CRS-BF-2", 5);
+    var year = saveAcademicYear("AY-BF-2");
+    var group = saveGroup("G-BF-2");
+    studentGroupHistoryRepository.save(
+        StudentGroupHistoryEntity.builder()
+            .id(UUID.randomUUID())
+            .student(student)
+            .academicYear(year)
+            .group(group)
+            .pathway(PathwayEntity.TN)
+            .startedAt(Instant.now().minusSeconds(3600))
+            .build());
+    studentCourseEnrollmentRepository.save(
+        StudentCourseEnrollmentEntity.builder()
+            .id(UUID.randomUUID())
+            .student(student)
+            .course(course)
+            .academicYear(year)
+            .enrolledAt(Instant.now().minusSeconds(7200))
+            .build());
+
+    courseOfferingService.createCourseOffering(
+        new CreateCourseOfferingRequest(course.getId(), year.getId(), group.getId()));
+
+    assertEquals(1, studentCourseEnrollmentRepository.findAllByStudent_Id(student.getId()).size());
   }
 }
