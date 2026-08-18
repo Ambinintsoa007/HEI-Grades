@@ -4,13 +4,17 @@ import com.example.demo.endpoint.rest.dto.CreateCourseOfferingRequest;
 import com.example.demo.endpoint.rest.exception.ConflictException;
 import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.CourseOfferingMapper;
+import com.example.demo.mapper.StudentCourseEnrollmentMapper;
 import com.example.demo.model.CourseOffering;
+import com.example.demo.model.StudentCourseEnrollment;
 import com.example.demo.model.UserRole;
 import com.example.demo.repository.AcademicYearRepository;
 import com.example.demo.repository.CourseOfferingRepository;
 import com.example.demo.repository.CourseOfferingTeacherRepository;
 import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.GroupRepository;
+import com.example.demo.repository.StudentCourseEnrollmentRepository;
+import com.example.demo.repository.StudentGroupHistoryRepository;
 import com.example.demo.repository.model.CourseOfferingEntity;
 import java.util.Comparator;
 import java.util.List;
@@ -31,6 +35,9 @@ public class CourseOfferingService {
   private final AcademicYearRepository academicYearRepository;
   private final GroupRepository groupRepository;
   private final CourseOfferingMapper courseOfferingMapper;
+  private final StudentGroupHistoryRepository studentGroupHistoryRepository;
+  private final StudentCourseEnrollmentRepository studentCourseEnrollmentRepository;
+  private final StudentCourseEnrollmentMapper studentCourseEnrollmentMapper;
 
   @Transactional(readOnly = true)
   public List<CourseOffering> listCourseOfferings(
@@ -78,8 +85,33 @@ public class CourseOfferingService {
             .academicYearId(request.academicYearId())
             .groupId(request.groupId())
             .build();
-    return courseOfferingMapper.toDomain(
-        courseOfferingRepository.save(courseOfferingMapper.toEntity(offering)));
+    CourseOfferingEntity saved =
+        courseOfferingRepository.save(courseOfferingMapper.toEntity(offering));
+    enrollExistingStudents(request.courseId(), request.academicYearId(), request.groupId());
+    return courseOfferingMapper.toDomain(saved);
+  }
+
+  private void enrollExistingStudents(UUID courseId, UUID academicYearId, UUID groupId) {
+    var histories =
+        studentGroupHistoryRepository.findByAcademicYear_IdAndGroup_Id(academicYearId, groupId);
+    for (var history : histories) {
+      UUID studentId = history.getStudent().getId();
+      boolean exists =
+          studentCourseEnrollmentRepository.existsByStudent_IdAndCourse_IdAndAcademicYear_Id(
+              studentId, courseId, academicYearId);
+      if (exists) {
+        continue;
+      }
+      StudentCourseEnrollment enrollment =
+          StudentCourseEnrollment.builder()
+              .id(UUID.randomUUID())
+              .studentId(studentId)
+              .courseId(courseId)
+              .academicYearId(academicYearId)
+              .enrolledAt(history.getStartedAt())
+              .build();
+      studentCourseEnrollmentRepository.save(studentCourseEnrollmentMapper.toEntity(enrollment));
+    }
   }
 
   private void requireExistingCourse(UUID courseId) {
