@@ -16,11 +16,14 @@ import com.example.demo.model.*;
 import com.example.demo.repository.*;
 import com.example.demo.repository.model.*;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class StudentServiceTest {
 
@@ -243,6 +246,7 @@ class StudentServiceTest {
     UUID academicYearId = UUID.randomUUID();
     UUID groupId = UUID.randomUUID();
     UUID courseId = UUID.randomUUID();
+    UUID offeringId = UUID.randomUUID();
 
     UserEntity userEntity = new UserEntity();
     CourseOfferingEntity offering = mock(CourseOfferingEntity.class);
@@ -252,6 +256,11 @@ class StudentServiceTest {
 
     StudentCourseEnrollmentEntity enrollmentEntity = mock(StudentCourseEnrollmentEntity.class);
 
+    when(offering.getId()).thenReturn(offeringId);
+
+    when(studentCourseEnrollmentRepository.findByStudent_IdAndCourse_IdAndAcademicYear_Id(
+            studentId, courseId, academicYearId))
+        .thenReturn(Optional.empty());
     when(userRepository.findById(studentId)).thenReturn(Optional.of(userEntity));
     when(userMapper.toDomain(userEntity)).thenReturn(student(studentId, promotionId));
 
@@ -266,10 +275,6 @@ class StudentServiceTest {
 
     when(offering.getCourse()).thenReturn(courseEntity);
     when(courseEntity.getId()).thenReturn(courseId);
-
-    when(studentCourseEnrollmentRepository.existsByStudent_IdAndCourse_IdAndAcademicYear_Id(
-            studentId, courseId, academicYearId))
-        .thenReturn(false);
 
     when(studentGroupHistoryMapper.toEntity(any(StudentGroupHistory.class)))
         .thenReturn(historyEntity);
@@ -285,21 +290,41 @@ class StudentServiceTest {
 
     studentService.assignGroup(studentId, request);
 
+    ArgumentCaptor<StudentCourseEnrollment> captor =
+        ArgumentCaptor.forClass(StudentCourseEnrollment.class);
+
+    verify(studentCourseEnrollmentMapper).toEntity(captor.capture());
+
+    assertEquals(Set.of(offeringId), captor.getValue().getCourseOfferingIds());
+
     verify(studentGroupHistoryRepository).save(historyEntity);
     verify(studentCourseEnrollmentRepository).save(enrollmentEntity);
   }
 
   @Test
-  void shouldNotDuplicateExistingStudentCourseEnrollment() {
+  void shouldAddNewOfferingWithoutDuplicatingEnrollment() {
     UUID studentId = UUID.randomUUID();
     UUID promotionId = UUID.randomUUID();
     UUID academicYearId = UUID.randomUUID();
     UUID groupId = UUID.randomUUID();
     UUID courseId = UUID.randomUUID();
 
-    UserEntity userEntity = new UserEntity();
-    CourseOfferingEntity offering = mock(CourseOfferingEntity.class);
+    CourseOfferingEntity oldOffering = CourseOfferingEntity.builder().id(UUID.randomUUID()).build();
+
+    CourseOfferingEntity newOffering = mock(CourseOfferingEntity.class);
     CourseEntity courseEntity = mock(CourseEntity.class);
+
+    when(newOffering.getId()).thenReturn(UUID.randomUUID());
+    when(newOffering.getCourse()).thenReturn(courseEntity);
+    when(courseEntity.getId()).thenReturn(courseId);
+
+    StudentCourseEnrollmentEntity existingEnrollment =
+        StudentCourseEnrollmentEntity.builder()
+            .id(UUID.randomUUID())
+            .courseOfferings(new HashSet<>(Set.of(oldOffering)))
+            .build();
+
+    UserEntity userEntity = new UserEntity();
 
     when(userRepository.findById(studentId)).thenReturn(Optional.of(userEntity));
     when(userMapper.toDomain(userEntity)).thenReturn(student(studentId, promotionId));
@@ -311,27 +336,27 @@ class StudentServiceTest {
         .thenReturn(Optional.empty());
 
     when(courseOfferingRepository.findByAcademicYear_IdAndGroup_Id(academicYearId, groupId))
-        .thenReturn(List.of(offering));
+        .thenReturn(List.of(newOffering));
 
-    when(offering.getCourse()).thenReturn(courseEntity);
-    when(courseEntity.getId()).thenReturn(courseId);
-
-    when(studentCourseEnrollmentRepository.existsByStudent_IdAndCourse_IdAndAcademicYear_Id(
+    when(studentCourseEnrollmentRepository.findByStudent_IdAndCourse_IdAndAcademicYear_Id(
             studentId, courseId, academicYearId))
-        .thenReturn(true);
+        .thenReturn(Optional.of(existingEnrollment));
 
     when(studentGroupHistoryMapper.toEntity(any()))
         .thenReturn(mock(StudentGroupHistoryEntity.class));
 
     StudentGroupAssignmentRequest request = new StudentGroupAssignmentRequest();
-
     request.setAcademicYearId(academicYearId);
     request.setGroupId(groupId);
     request.setStartedAt(Instant.now());
 
     studentService.assignGroup(studentId, request);
 
-    verify(studentCourseEnrollmentRepository, never()).save(any());
+    assertEquals(2, existingEnrollment.getCourseOfferings().size());
+    assertTrue(existingEnrollment.getCourseOfferings().contains(newOffering));
+
+    verify(studentCourseEnrollmentRepository).save(existingEnrollment);
+    verify(studentCourseEnrollmentMapper, never()).toEntity(any());
   }
 
   @Test

@@ -15,6 +15,7 @@ import com.example.demo.repository.StudentGroupHistoryRepository;
 import com.example.demo.repository.model.PathwayEntity;
 import com.example.demo.repository.model.StudentCourseEnrollmentEntity;
 import com.example.demo.repository.model.StudentGroupHistoryEntity;
+import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
@@ -212,5 +213,40 @@ class CourseOfferingServiceIT extends CourseManagementTestBase {
         new CreateCourseOfferingRequest(course.getId(), year.getId(), group.getId()));
 
     assertEquals(1, studentCourseEnrollmentRepository.findAllByStudent_Id(student.getId()).size());
+  }
+
+  @Test
+  @Transactional
+  void shouldBackfillExistingStudentAndLinkOffering() {
+    var student = saveStudent();
+    var course = saveCourse("CRS-BACKFILL", 5);
+    var year = saveAcademicYear("AY-BACKFILL");
+    var group = saveGroup("G-BACKFILL");
+
+    var startedAt = Instant.now().minusSeconds(3600);
+
+    studentGroupHistoryRepository.save(
+        StudentGroupHistoryEntity.builder()
+            .id(UUID.randomUUID())
+            .student(student)
+            .academicYear(year)
+            .group(group)
+            .startedAt(startedAt)
+            .endedAt(Instant.now())
+            .build());
+
+    var offering =
+        courseOfferingService.createCourseOffering(
+            new CreateCourseOfferingRequest(course.getId(), year.getId(), group.getId()));
+
+    var enrollment =
+        studentCourseEnrollmentRepository
+            .findByStudent_IdAndCourse_IdAndAcademicYear_Id(
+                student.getId(), course.getId(), year.getId())
+            .orElseThrow();
+
+    assertEquals(1, enrollment.getCourseOfferings().size());
+    assertTrue(
+        enrollment.getCourseOfferings().stream().anyMatch(o -> o.getId().equals(offering.getId())));
   }
 }
