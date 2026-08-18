@@ -13,5 +13,8 @@ public interface StudentGroupHistoryRepository
 
   List<StudentGroupHistoryEntity> findByStudent_IdOrderByStartedAtAsc(UUID studentId);
 
+  List<StudentGroupHistoryEntity> findByAcademicYear_IdAndGroup_Id(
+      UUID academicYearId, UUID groupId);
+
   Optional<StudentGroupHistoryEntity> findByStudent_IdAndEndedAtIsNull(UUID studentId);
 }
