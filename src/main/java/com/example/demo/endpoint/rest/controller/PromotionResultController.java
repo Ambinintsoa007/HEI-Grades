@@ -1,7 +1,7 @@
 package com.example.demo.endpoint.rest.controller;
 
 import com.example.demo.endpoint.rest.dto.GraduateResponse;
-import com.example.demo.endpoint.rest.dto.PromotionStudentResultResponse;
+import com.example.demo.endpoint.rest.dto.PromotionResultsResponse;
 import com.example.demo.service.GraduateExcelService;
 import com.example.demo.service.PromotionResultService;
 import java.util.List;
@@ -24,7 +24,7 @@ public class PromotionResultController {
   private final GraduateExcelService graduateExcelService;
 
   @GetMapping("/{promotionId}/results")
-  public List<PromotionStudentResultResponse> getPromotionResults(@PathVariable UUID promotionId) {
+  public PromotionResultsResponse getPromotionResults(@PathVariable UUID promotionId) {
     return promotionResultService.getPromotionResults(promotionId);
   }
 

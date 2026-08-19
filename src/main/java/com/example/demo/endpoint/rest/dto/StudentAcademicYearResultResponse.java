@@ -7,12 +7,11 @@ import lombok.Getter;
 
 @Getter
 @Builder
-public class AcademicYearResultResponse {
+public class StudentAcademicYearResultResponse {
 
   private final UUID academicYearId;
-  private final String label;
+  private final String academicYearLabel;
   private final BigDecimal average;
   private final int earnedCredits;
-  private final int totalCredits;
   private final boolean complete;
 }

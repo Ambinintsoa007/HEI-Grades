@@ -1,5 +1,7 @@
 package com.example.demo.endpoint.rest.dto;
 
+import com.example.demo.model.Pathway;
+import java.math.BigDecimal;
 import java.util.UUID;
 import lombok.Builder;
 import lombok.Getter;
@@ -12,6 +14,6 @@ public class GraduateResponse {
   private final String std;
   private final String firstName;
   private final String lastName;
-  private final String email;
-  private final int earnedCredits;
+  private final Pathway pathway;
+  private final BigDecimal overallAverage;
 }

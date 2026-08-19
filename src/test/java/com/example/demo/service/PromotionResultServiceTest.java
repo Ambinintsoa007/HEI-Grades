@@ -11,14 +11,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
+import com.example.demo.model.Pathway;
 import com.example.demo.model.StudentCourseResult;
 import com.example.demo.repository.AcademicYearRepository;
 import com.example.demo.repository.PromotionRepository;
 import com.example.demo.repository.StudentCourseEnrollmentRepository;
+import com.example.demo.repository.StudentGroupHistoryRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.model.AcademicYearEntity;
+import com.example.demo.repository.model.PathwayEntity;
 import com.example.demo.repository.model.PromotionEntity;
 import com.example.demo.repository.model.StudentCourseEnrollmentEntity;
+import com.example.demo.repository.model.StudentGroupHistoryEntity;
 import com.example.demo.repository.model.UserEntity;
 import com.example.demo.repository.model.UserRoleEntity;
 import com.example.demo.repository.model.UserStatusEntity;
@@ -35,6 +39,7 @@ class PromotionResultServiceTest {
   private UserRepository userRepository;
   private StudentCourseEnrollmentRepository studentCourseEnrollmentRepository;
   private AcademicYearRepository academicYearRepository;
+  private StudentGroupHistoryRepository studentGroupHistoryRepository;
   private StudentCourseResultService studentCourseResultService;
   private PromotionResultService promotionResultService;
 
@@ -49,6 +54,7 @@ class PromotionResultServiceTest {
     userRepository = mock(UserRepository.class);
     studentCourseEnrollmentRepository = mock(StudentCourseEnrollmentRepository.class);
     academicYearRepository = mock(AcademicYearRepository.class);
+    studentGroupHistoryRepository = mock(StudentGroupHistoryRepository.class);
     studentCourseResultService = mock(StudentCourseResultService.class);
 
     promotionResultService =
@@ -57,6 +63,7 @@ class PromotionResultServiceTest {
             userRepository,
             studentCourseEnrollmentRepository,
             academicYearRepository,
+            studentGroupHistoryRepository,
             studentCourseResultService);
 
     promotionId = UUID.randomUUID();
@@ -87,6 +94,17 @@ class PromotionResultServiceTest {
   }
 
   @Test
+  void resultsResponseContainsPromotionId() {
+    when(userRepository.findByRoleAndPromotion_Id(UserRoleEntity.STUDENT, promotionId))
+        .thenReturn(List.of());
+
+    var response = promotionResultService.getPromotionResults(promotionId);
+
+    assertEquals(promotionId, response.getPromotionId());
+    assertTrue(response.getStudents().isEmpty());
+  }
+
+  @Test
   void onlyOneAcademicYearIsNotCompleteNorGraduate() {
     var student = student("STD-001");
     var enrollment = enrollment();
@@ -97,7 +115,7 @@ class PromotionResultServiceTest {
     when(studentCourseResultService.calculate(enrollment.getId()))
         .thenReturn(result(true, new BigDecimal("12.00"), 5, 5, year1));
 
-    var result = promotionResultService.getPromotionResults(promotionId).get(0);
+    var result = promotionResultService.getPromotionResults(promotionId).getStudents().get(0);
 
     assertFalse(result.isComplete());
     assertFalse(result.isGraduate());
@@ -117,7 +135,7 @@ class PromotionResultServiceTest {
     when(studentCourseResultService.calculate(enrollmentB.getId()))
         .thenReturn(result(true, new BigDecimal("13.00"), 5, 5, year2));
 
-    var result = promotionResultService.getPromotionResults(promotionId).get(0);
+    var result = promotionResultService.getPromotionResults(promotionId).getStudents().get(0);
 
     assertFalse(result.isComplete());
     assertFalse(result.isGraduate());
@@ -140,17 +158,16 @@ class PromotionResultServiceTest {
     when(studentCourseResultService.calculate(enrollmentC.getId()))
         .thenReturn(result(true, new BigDecimal("14.00"), 5, 5, year3));
 
-    var result = promotionResultService.getPromotionResults(promotionId).get(0);
+    var result = promotionResultService.getPromotionResults(promotionId).getStudents().get(0);
 
     assertTrue(result.isComplete());
     assertTrue(result.isGraduate());
-    assertEquals(15, result.getEarnedCredits());
-    assertEquals(15, result.getTotalCredits());
     assertEquals(3, result.getAcademicYears().size());
     var firstYear = result.getAcademicYears().get(0);
     assertTrue(firstYear.isComplete());
     assertEquals(new BigDecimal("12.00"), firstYear.getAverage());
-    assertEquals("2023-2024", firstYear.getLabel());
+    assertEquals(5, firstYear.getEarnedCredits());
+    assertEquals("2023-2024", firstYear.getAcademicYearLabel());
   }
 
   @Test
@@ -170,12 +187,11 @@ class PromotionResultServiceTest {
     when(studentCourseResultService.calculate(enrollmentC.getId()))
         .thenReturn(result(true, new BigDecimal("8.00"), 5, 0, year3));
 
-    var result = promotionResultService.getPromotionResults(promotionId).get(0);
+    var result = promotionResultService.getPromotionResults(promotionId).getStudents().get(0);
 
     assertTrue(result.isComplete());
     assertFalse(result.isGraduate());
-    assertEquals(10, result.getEarnedCredits());
-    assertEquals(15, result.getTotalCredits());
+    assertEquals(0, result.getAcademicYears().get(2).getEarnedCredits());
     assertEquals(new BigDecimal("8.00"), result.getAcademicYears().get(2).getAverage());
   }
 
@@ -196,7 +212,7 @@ class PromotionResultServiceTest {
     when(studentCourseResultService.calculate(enrollmentC.getId()))
         .thenReturn(result(false, null, 5, 0, year3));
 
-    var result = promotionResultService.getPromotionResults(promotionId).get(0);
+    var result = promotionResultService.getPromotionResults(promotionId).getStudents().get(0);
 
     assertFalse(result.isComplete());
     assertFalse(result.isGraduate());
@@ -206,7 +222,7 @@ class PromotionResultServiceTest {
   }
 
   @Test
-  void earnedCreditsIncludeOnlyPassedCourses() {
+  void yearEarnedCreditsIncludeOnlyPassedCourses() {
     var student = student("STD-006");
     var passed = enrollment();
     var failed = enrollment();
@@ -219,11 +235,9 @@ class PromotionResultServiceTest {
     when(studentCourseResultService.calculate(failed.getId()))
         .thenReturn(result(true, new BigDecimal("9.00"), 4, 0, year1));
 
-    var result = promotionResultService.getPromotionResults(promotionId).get(0);
+    var result = promotionResultService.getPromotionResults(promotionId).getStudents().get(0);
 
-    assertEquals(3, result.getEarnedCredits());
-    assertEquals(7, result.getTotalCredits());
-    assertEquals(1, result.getAcademicYears().size());
+    assertEquals(3, result.getAcademicYears().get(0).getEarnedCredits());
     assertFalse(result.isGraduate());
   }
 
@@ -238,7 +252,7 @@ class PromotionResultServiceTest {
     when(studentCourseEnrollmentRepository.findAllByStudent_Id(studentB.getId()))
         .thenReturn(List.of());
 
-    var results = promotionResultService.getPromotionResults(promotionId);
+    var results = promotionResultService.getPromotionResults(promotionId).getStudents();
 
     assertEquals(2, results.size());
     assertTrue(results.stream().anyMatch(r -> r.getStudentId().equals(studentA.getId())));
@@ -271,13 +285,47 @@ class PromotionResultServiceTest {
     when(studentCourseResultService.calculate(nonGraduateEnrollments.get(2).getId()))
         .thenReturn(result(true, new BigDecimal("9.00"), 5, 0, year3));
 
+    when(studentGroupHistoryRepository.findByStudent_IdAndEndedAtIsNull(graduate.getId()))
+        .thenReturn(
+            Optional.of(
+                StudentGroupHistoryEntity.builder()
+                    .id(UUID.randomUUID())
+                    .pathway(PathwayEntity.EL)
+                    .build()));
+
     var graduates = promotionResultService.getGraduates(promotionId);
 
     assertEquals(1, graduates.size());
-    assertEquals(graduate.getId(), graduates.get(0).getStudentId());
-    assertEquals("STD-009", graduates.get(0).getStd());
-    assertEquals("jane@hei.school", graduates.get(0).getEmail());
-    assertEquals(15, graduates.get(0).getEarnedCredits());
+    var response = graduates.get(0);
+    assertEquals(graduate.getId(), response.getStudentId());
+    assertEquals("STD-009", response.getStd());
+    assertEquals(Pathway.EL, response.getPathway());
+    assertEquals(new BigDecimal("13.00"), response.getOverallAverage());
+  }
+
+  @Test
+  void graduateWithoutGroupHistoryHasNullPathway() {
+    var graduate = student("STD-011");
+    var enrollments = List.of(enrollment(), enrollment(), enrollment());
+    when(userRepository.findByRoleAndPromotion_Id(UserRoleEntity.STUDENT, promotionId))
+        .thenReturn(List.of(graduate));
+    when(studentCourseEnrollmentRepository.findAllByStudent_Id(graduate.getId()))
+        .thenReturn(enrollments);
+    when(studentCourseResultService.calculate(enrollments.get(0).getId()))
+        .thenReturn(result(true, new BigDecimal("12.00"), 5, 5, year1));
+    when(studentCourseResultService.calculate(enrollments.get(1).getId()))
+        .thenReturn(result(true, new BigDecimal("13.00"), 5, 5, year2));
+    when(studentCourseResultService.calculate(enrollments.get(2).getId()))
+        .thenReturn(result(true, new BigDecimal("14.00"), 5, 5, year3));
+    when(studentGroupHistoryRepository.findByStudent_IdAndEndedAtIsNull(graduate.getId()))
+        .thenReturn(Optional.empty());
+    when(studentGroupHistoryRepository.findByStudent_IdOrderByStartedAtAsc(graduate.getId()))
+        .thenReturn(List.of());
+
+    var graduates = promotionResultService.getGraduates(promotionId);
+
+    assertEquals(1, graduates.size());
+    assertNull(graduates.get(0).getPathway());
   }
 
   private UserEntity student(String std) {

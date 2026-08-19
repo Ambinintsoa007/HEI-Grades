@@ -15,7 +15,5 @@ public class PromotionStudentResultResponse {
   private final String lastName;
   private final boolean complete;
   private final boolean graduate;
-  private final int earnedCredits;
-  private final int totalCredits;
-  private final List<AcademicYearResultResponse> academicYears;
+  private final List<StudentAcademicYearResultResponse> academicYears;
 }

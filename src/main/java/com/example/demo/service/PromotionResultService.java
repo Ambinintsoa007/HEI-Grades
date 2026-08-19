@@ -1,15 +1,19 @@
 package com.example.demo.service;
 
-import com.example.demo.endpoint.rest.dto.AcademicYearResultResponse;
 import com.example.demo.endpoint.rest.dto.GraduateResponse;
+import com.example.demo.endpoint.rest.dto.PromotionResultsResponse;
 import com.example.demo.endpoint.rest.dto.PromotionStudentResultResponse;
+import com.example.demo.endpoint.rest.dto.StudentAcademicYearResultResponse;
 import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
+import com.example.demo.model.Pathway;
 import com.example.demo.model.StudentCourseResult;
 import com.example.demo.repository.AcademicYearRepository;
 import com.example.demo.repository.PromotionRepository;
 import com.example.demo.repository.StudentCourseEnrollmentRepository;
+import com.example.demo.repository.StudentGroupHistoryRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.model.PromotionEntity;
+import com.example.demo.repository.model.StudentGroupHistoryEntity;
 import com.example.demo.repository.model.UserEntity;
 import com.example.demo.repository.model.UserRoleEntity;
 import java.math.BigDecimal;
@@ -17,6 +21,7 @@ import java.math.RoundingMode;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -34,20 +39,25 @@ public class PromotionResultService {
   private final UserRepository userRepository;
   private final StudentCourseEnrollmentRepository studentCourseEnrollmentRepository;
   private final AcademicYearRepository academicYearRepository;
+  private final StudentGroupHistoryRepository studentGroupHistoryRepository;
   private final StudentCourseResultService studentCourseResultService;
 
   @Transactional(readOnly = true)
-  public List<PromotionStudentResultResponse> getPromotionResults(UUID promotionId) {
+  public PromotionResultsResponse getPromotionResults(UUID promotionId) {
     requireExistingPromotion(promotionId);
-    return promotionStudents(promotionId).stream().map(this::toStudentResult).toList();
+    List<PromotionStudentResultResponse> students =
+        promotionStudents(promotionId).stream()
+            .map(student -> toStudentResult(student, studentResults(student)))
+            .toList();
+    return PromotionResultsResponse.builder().promotionId(promotionId).students(students).build();
   }
 
   @Transactional(readOnly = true)
   public List<GraduateResponse> getGraduates(UUID promotionId) {
     requireExistingPromotion(promotionId);
     return promotionStudents(promotionId).stream()
-        .map(student -> Map.entry(student, toStudentResult(student)))
-        .filter(entry -> entry.getValue().isGraduate())
+        .map(student -> Map.entry(student, studentResults(student)))
+        .filter(entry -> isGraduate(entry.getValue()))
         .map(entry -> toGraduateResponse(entry.getKey(), entry.getValue()))
         .toList();
   }
@@ -62,30 +72,21 @@ public class PromotionResultService {
     return userRepository.findByRoleAndPromotion_Id(UserRoleEntity.STUDENT, promotionId);
   }
 
-  private PromotionStudentResultResponse toStudentResult(UserEntity student) {
-    List<StudentCourseResult> results =
-        studentCourseEnrollmentRepository.findAllByStudent_Id(student.getId()).stream()
-            .map(enrollment -> studentCourseResultService.calculate(enrollment.getId()))
-            .toList();
+  private List<StudentCourseResult> studentResults(UserEntity student) {
+    return studentCourseEnrollmentRepository.findAllByStudent_Id(student.getId()).stream()
+        .map(enrollment -> studentCourseResultService.calculate(enrollment.getId()))
+        .toList();
+  }
 
-    boolean hasFullThreeYearProgram =
-        results.stream().map(StudentCourseResult::getAcademicYearId).distinct().count() == 3;
-    boolean complete =
-        hasFullThreeYearProgram && results.stream().allMatch(StudentCourseResult::isComplete);
-    boolean graduate =
-        complete
-            && results.stream()
-                .allMatch(result -> result.getFinalGrade().compareTo(PASSING_GRADE) >= 0);
-    int earnedCredits = results.stream().mapToInt(StudentCourseResult::getEarnedCredits).sum();
-    int totalCredits = results.stream().mapToInt(StudentCourseResult::getCredits).sum();
-
-    List<AcademicYearResultResponse> academicYears =
+  private PromotionStudentResultResponse toStudentResult(
+      UserEntity student, List<StudentCourseResult> results) {
+    List<StudentAcademicYearResultResponse> academicYears =
         results.stream()
             .collect(Collectors.groupingBy(StudentCourseResult::getAcademicYearId))
             .entrySet()
             .stream()
             .map(this::toAcademicYearResult)
-            .sorted(Comparator.comparing(AcademicYearResultResponse::getLabel))
+            .sorted(Comparator.comparing(StudentAcademicYearResultResponse::getAcademicYearLabel))
             .toList();
 
     return PromotionStudentResultResponse.builder()
@@ -93,32 +94,43 @@ public class PromotionResultService {
         .std(student.getStd())
         .firstName(student.getFirstName())
         .lastName(student.getLastName())
-        .complete(complete)
-        .graduate(graduate)
-        .earnedCredits(earnedCredits)
-        .totalCredits(totalCredits)
+        .complete(isComplete(results))
+        .graduate(isGraduate(results))
         .academicYears(academicYears)
         .build();
   }
 
-  private AcademicYearResultResponse toAcademicYearResult(
+  private StudentAcademicYearResultResponse toAcademicYearResult(
       Map.Entry<UUID, List<StudentCourseResult>> entry) {
     UUID academicYearId = entry.getKey();
     List<StudentCourseResult> results = entry.getValue();
 
     boolean complete = results.stream().allMatch(StudentCourseResult::isComplete);
     int earnedCredits = results.stream().mapToInt(StudentCourseResult::getEarnedCredits).sum();
-    int totalCredits = results.stream().mapToInt(StudentCourseResult::getCredits).sum();
     BigDecimal average = complete ? weightedAverage(results) : null;
 
-    return AcademicYearResultResponse.builder()
+    return StudentAcademicYearResultResponse.builder()
         .academicYearId(academicYearId)
-        .label(academicYearLabel(academicYearId))
+        .academicYearLabel(academicYearLabel(academicYearId))
         .average(average)
         .earnedCredits(earnedCredits)
-        .totalCredits(totalCredits)
         .complete(complete)
         .build();
+  }
+
+  private boolean hasFullThreeYearProgram(List<StudentCourseResult> results) {
+    return results.stream().map(StudentCourseResult::getAcademicYearId).distinct().count() == 3;
+  }
+
+  private boolean isComplete(List<StudentCourseResult> results) {
+    return hasFullThreeYearProgram(results)
+        && results.stream().allMatch(StudentCourseResult::isComplete);
+  }
+
+  private boolean isGraduate(List<StudentCourseResult> results) {
+    return isComplete(results)
+        && results.stream()
+            .allMatch(result -> result.getFinalGrade().compareTo(PASSING_GRADE) >= 0);
   }
 
   private BigDecimal weightedAverage(List<StudentCourseResult> results) {
@@ -143,14 +155,31 @@ public class PromotionResultService {
   }
 
   private GraduateResponse toGraduateResponse(
-      UserEntity student, PromotionStudentResultResponse result) {
+      UserEntity student, List<StudentCourseResult> results) {
     return GraduateResponse.builder()
         .studentId(student.getId())
         .std(student.getStd())
         .firstName(student.getFirstName())
         .lastName(student.getLastName())
-        .email(student.getEmail())
-        .earnedCredits(result.getEarnedCredits())
+        .pathway(currentPathway(student.getId()))
+        .overallAverage(weightedAverage(results))
         .build();
+  }
+
+  private Pathway currentPathway(UUID studentId) {
+    return studentGroupHistoryRepository
+        .findByStudent_IdAndEndedAtIsNull(studentId)
+        .or(() -> lastHistory(studentId))
+        .map(StudentGroupHistoryEntity::getPathway)
+        .map(pathway -> Pathway.valueOf(pathway.name()))
+        .orElse(null);
+  }
+
+  private Optional<StudentGroupHistoryEntity> lastHistory(UUID studentId) {
+    List<StudentGroupHistoryEntity> histories =
+        studentGroupHistoryRepository.findByStudent_IdOrderByStartedAtAsc(studentId);
+    return histories.isEmpty()
+        ? Optional.empty()
+        : Optional.of(histories.get(histories.size() - 1));
   }
 }

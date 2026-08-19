@@ -99,6 +99,7 @@ class PromotionResultControllerIT extends CourseManagementTestBase {
             resultsUrl, HttpMethod.GET, new HttpEntity<>(authHeaders(saveAdmin())), String.class);
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
+    assertTrue(response.getBody().contains(promotion.getId().toString()));
     assertTrue(response.getBody().contains(graduateStudent.getId().toString()));
     assertTrue(response.getBody().contains(incompleteStudent.getId().toString()));
     assertTrue(response.getBody().contains(failingStudent.getId().toString()));
@@ -111,6 +112,7 @@ class PromotionResultControllerIT extends CourseManagementTestBase {
             graduatesUrl, HttpMethod.GET, new HttpEntity<>(authHeaders(saveAdmin())), String.class);
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
+    assertTrue(response.getBody().contains("overallAverage"));
     assertTrue(response.getBody().contains(graduateStudent.getId().toString()));
     assertTrue(!response.getBody().contains(incompleteStudent.getId().toString()));
     assertTrue(!response.getBody().contains(failingStudent.getId().toString()));
