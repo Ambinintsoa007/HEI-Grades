@@ -21,9 +21,15 @@ public class SecurityConf {
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers("/auth/login", "/ping", "/health/**")
+                auth.requestMatchers("/auth/login", "/ping", "/health/**", "/web/**")
                     .permitAll()
                     .requestMatchers("/users/**")
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.GET, "/promotions/*/results")
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.GET, "/promotions/*/graduates")
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.GET, "/promotions/*/graduates.xlsx")
                     .hasRole("ADMIN")
                     .requestMatchers(HttpMethod.POST, "/promotions")
                     .hasRole("ADMIN")
