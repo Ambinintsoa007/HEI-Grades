@@ -2,13 +2,16 @@ package com.example.demo.endpoint.rest.controller;
 
 import com.example.demo.endpoint.rest.dto.TranscriptResponse;
 import com.example.demo.model.UserRole;
+import com.example.demo.service.TranscriptEmailRequestService;
 import com.example.demo.service.TranscriptService;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TranscriptController {
 
   private final TranscriptService transcriptService;
+  private final TranscriptEmailRequestService transcriptEmailRequestService;
 
   @GetMapping("/students/{studentId}/transcript")
   public TranscriptResponse getStudentTranscript(
@@ -26,5 +30,18 @@ public class TranscriptController {
     UserRole role = UserRole.valueOf(jwt.getClaimAsString("role"));
 
     return transcriptService.getTranscript(authenticatedUserId, role, studentId);
+  }
+
+  @PostMapping("/students/{studentId}/transcript/email")
+  public ResponseEntity<Void> sendTranscriptByEmail(
+      @PathVariable UUID studentId, @AuthenticationPrincipal Jwt jwt) {
+
+    UUID authenticatedUserId = UUID.fromString(jwt.getSubject());
+
+    UserRole role = UserRole.valueOf(jwt.getClaimAsString("role"));
+
+    transcriptEmailRequestService.request(authenticatedUserId, role, studentId);
+
+    return ResponseEntity.accepted().build();
   }
 }
