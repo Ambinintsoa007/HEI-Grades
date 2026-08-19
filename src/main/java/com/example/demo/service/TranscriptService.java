@@ -29,14 +29,7 @@ public class TranscriptService {
   @Transactional(readOnly = true)
   public TranscriptResponse getTranscript(UUID authenticatedUserId, UserRole role, UUID studentId) {
 
-    var student =
-        userRepository
-            .findById(studentId)
-            .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
-
-    if (student.getRole() != UserRoleEntity.STUDENT) {
-      throw new ResourceNotFoundException("Student not found");
-    }
+    requireStudent(studentId);
 
     if (role == UserRole.STUDENT && !authenticatedUserId.equals(studentId)) {
       throw new AccessDeniedException("Access denied");
@@ -45,6 +38,28 @@ public class TranscriptService {
     if (role != UserRole.STUDENT && role != UserRole.ADMIN) {
       throw new AccessDeniedException("Access denied");
     }
+
+    return buildTranscript(studentId);
+  }
+
+  @Transactional(readOnly = true)
+  public TranscriptResponse getTranscript(UUID studentId) {
+    requireStudent(studentId);
+    return buildTranscript(studentId);
+  }
+
+  private void requireStudent(UUID studentId) {
+    var student =
+        userRepository
+            .findById(studentId)
+            .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+
+    if (student.getRole() != UserRoleEntity.STUDENT) {
+      throw new ResourceNotFoundException("Student not found");
+    }
+  }
+
+  private TranscriptResponse buildTranscript(UUID studentId) {
 
     var enrollments = studentCourseEnrollmentRepository.findAllByStudent_Id(studentId);
 

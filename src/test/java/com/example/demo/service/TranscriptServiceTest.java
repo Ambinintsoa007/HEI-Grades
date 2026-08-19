@@ -251,4 +251,22 @@ class TranscriptServiceTest {
     assertEquals(0, result.getEarnedCredits());
     assertFalse(result.getCourses().getFirst().getValidated());
   }
+
+  @Test
+  void workerShouldGetTranscriptWithoutAuthenticationContext() {
+    UUID studentId = UUID.randomUUID();
+
+    UserEntity student = mock(UserEntity.class);
+
+    when(student.getRole()).thenReturn(UserRoleEntity.STUDENT);
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+
+    when(enrollmentRepository.findAllByStudent_Id(studentId)).thenReturn(List.of());
+
+    var result = transcriptService.getTranscript(studentId);
+
+    assertEquals(studentId, result.getStudentId());
+    assertTrue(result.getCourses().isEmpty());
+  }
 }
