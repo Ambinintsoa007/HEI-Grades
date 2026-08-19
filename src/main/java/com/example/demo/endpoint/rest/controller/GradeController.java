@@ -1,8 +1,6 @@
 package com.example.demo.endpoint.rest.controller;
 
-import com.example.demo.endpoint.rest.dto.GradeHistoryResponse;
-import com.example.demo.endpoint.rest.dto.GradeResponse;
-import com.example.demo.endpoint.rest.dto.SaveGradeRequest;
+import com.example.demo.endpoint.rest.dto.*;
 import com.example.demo.model.UserRole;
 import com.example.demo.service.GradeService;
 import jakarta.validation.Valid;
@@ -45,12 +43,21 @@ public class GradeController {
   }
 
   @GetMapping("/exams/{examId}/grades")
-  public List<GradeResponse> getExamGrades(
+  public List<ExamGradeResponse> getExamGrades(
       @PathVariable UUID examId, @AuthenticationPrincipal Jwt jwt) {
 
     UUID userId = UUID.fromString(jwt.getSubject());
     UserRole role = UserRole.valueOf(jwt.getClaimAsString("role"));
 
     return gradeService.getExamGrades(userId, role, examId);
+  }
+
+  @GetMapping("/students/me/grades")
+  public List<StudentGradeResponse> getCurrentStudentGrades(@AuthenticationPrincipal Jwt jwt) {
+
+    UUID userId = UUID.fromString(jwt.getSubject());
+    UserRole role = UserRole.valueOf(jwt.getClaimAsString("role"));
+
+    return gradeService.getCurrentStudentGrades(userId, role);
   }
 }

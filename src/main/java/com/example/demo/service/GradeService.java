@@ -1,8 +1,6 @@
 package com.example.demo.service;
 
-import com.example.demo.endpoint.rest.dto.GradeHistoryResponse;
-import com.example.demo.endpoint.rest.dto.GradeResponse;
-import com.example.demo.endpoint.rest.dto.SaveGradeRequest;
+import com.example.demo.endpoint.rest.dto.*;
 import com.example.demo.endpoint.rest.exception.BusinessException;
 import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.GradeHistoryMapper;
@@ -162,7 +160,8 @@ public class GradeService {
   }
 
   @Transactional(readOnly = true)
-  public List<GradeResponse> getExamGrades(UUID authenticatedUserId, UserRole role, UUID examId) {
+  public List<ExamGradeResponse> getExamGrades(
+      UUID authenticatedUserId, UserRole role, UUID examId) {
 
     var exam =
         examRepository
@@ -178,9 +177,52 @@ public class GradeService {
       throw new AccessDeniedException("Access denied");
     }
 
-    return gradeRepository.findByExam_Id(examId).stream()
-        .map(gradeMapper::toDomain)
-        .map(this::toResponse)
+    return studentCourseEnrollmentRepository.findByCourseOfferings_Id(offeringId).stream()
+        .map(
+            enrollment -> {
+              var student = enrollment.getStudent();
+
+              var grade =
+                  gradeRepository.findByExam_IdAndStudentCourseEnrollment_Id(
+                      examId, enrollment.getId());
+
+              return ExamGradeResponse.builder()
+                  .gradeId(grade.map(g -> g.getId()).orElse(null))
+                  .studentId(student.getId())
+                  .studentCourseEnrollmentId(enrollment.getId())
+                  .std(student.getStd())
+                  .firstName(student.getFirstName())
+                  .lastName(student.getLastName())
+                  .score(grade.map(g -> g.getScore()).orElse(null))
+                  .build();
+            })
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<StudentGradeResponse> getCurrentStudentGrades(
+      UUID authenticatedUserId, UserRole role) {
+
+    if (role != UserRole.STUDENT) {
+      throw new AccessDeniedException("Student role required");
+    }
+
+    return gradeRepository.findByStudentCourseEnrollment_Student_Id(authenticatedUserId).stream()
+        .map(
+            grade -> {
+              var exam = grade.getExam();
+              var course = grade.getStudentCourseEnrollment().getCourse();
+
+              return StudentGradeResponse.builder()
+                  .gradeId(grade.getId())
+                  .examId(exam.getId())
+                  .examRef(exam.getRef())
+                  .courseId(course.getId())
+                  .courseRef(course.getRef())
+                  .score(grade.getScore())
+                  .coefficient(exam.getCoefficient())
+                  .build();
+            })
         .toList();
   }
 
