@@ -39,7 +39,9 @@ class PromotionResultServiceTest {
   private PromotionResultService promotionResultService;
 
   private UUID promotionId;
-  private UUID yearId;
+  private UUID year1;
+  private UUID year2;
+  private UUID year3;
 
   @BeforeEach
   void setUp() {
@@ -58,12 +60,17 @@ class PromotionResultServiceTest {
             studentCourseResultService);
 
     promotionId = UUID.randomUUID();
-    yearId = UUID.randomUUID();
+    year1 = UUID.randomUUID();
+    year2 = UUID.randomUUID();
+    year3 = UUID.randomUUID();
     when(promotionRepository.findById(promotionId))
         .thenReturn(Optional.of(PromotionEntity.builder().id(promotionId).name("Promo").build()));
-    when(academicYearRepository.findById(yearId))
-        .thenReturn(
-            Optional.of(AcademicYearEntity.builder().id(yearId).label("2024-2025").build()));
+    when(academicYearRepository.findById(year1))
+        .thenReturn(Optional.of(AcademicYearEntity.builder().id(year1).label("2023-2024").build()));
+    when(academicYearRepository.findById(year2))
+        .thenReturn(Optional.of(AcademicYearEntity.builder().id(year2).label("2024-2025").build()));
+    when(academicYearRepository.findById(year3))
+        .thenReturn(Optional.of(AcademicYearEntity.builder().id(year3).label("2025-2026").build()));
   }
 
   @Test
@@ -80,7 +87,7 @@ class PromotionResultServiceTest {
   }
 
   @Test
-  void allCoursesCompleteAndPassingMakesGraduate() {
+  void onlyOneAcademicYearIsNotCompleteNorGraduate() {
     var student = student("STD-001");
     var enrollment = enrollment();
     when(userRepository.findByRoleAndPromotion_Id(UserRoleEntity.STUDENT, promotionId))
@@ -88,27 +95,16 @@ class PromotionResultServiceTest {
     when(studentCourseEnrollmentRepository.findAllByStudent_Id(student.getId()))
         .thenReturn(List.of(enrollment));
     when(studentCourseResultService.calculate(enrollment.getId()))
-        .thenReturn(result(true, new BigDecimal("12.00"), 5, 5));
+        .thenReturn(result(true, new BigDecimal("12.00"), 5, 5, year1));
 
-    var results = promotionResultService.getPromotionResults(promotionId);
+    var result = promotionResultService.getPromotionResults(promotionId).get(0);
 
-    assertEquals(1, results.size());
-    var result = results.get(0);
-    assertTrue(result.isComplete());
-    assertTrue(result.isGraduate());
-    assertEquals(5, result.getEarnedCredits());
-    assertEquals(5, result.getTotalCredits());
-    assertEquals(1, result.getAcademicYears().size());
-    var year = result.getAcademicYears().get(0);
-    assertTrue(year.isComplete());
-    assertEquals(new BigDecimal("12.00"), year.getAverage());
-    assertEquals("2024-2025", year.getLabel());
-    assertEquals(5, year.getEarnedCredits());
-    assertEquals(5, year.getTotalCredits());
+    assertFalse(result.isComplete());
+    assertFalse(result.isGraduate());
   }
 
   @Test
-  void oneCourseBelowTenIsNotGraduateEvenWithAverageAboveTen() {
+  void onlyTwoAcademicYearsAreNotCompleteNorGraduate() {
     var student = student("STD-002");
     var enrollmentA = enrollment();
     var enrollmentB = enrollment();
@@ -117,76 +113,124 @@ class PromotionResultServiceTest {
     when(studentCourseEnrollmentRepository.findAllByStudent_Id(student.getId()))
         .thenReturn(List.of(enrollmentA, enrollmentB));
     when(studentCourseResultService.calculate(enrollmentA.getId()))
-        .thenReturn(result(true, new BigDecimal("12.00"), 5, 5));
+        .thenReturn(result(true, new BigDecimal("12.00"), 5, 5, year1));
     when(studentCourseResultService.calculate(enrollmentB.getId()))
-        .thenReturn(result(true, new BigDecimal("8.00"), 5, 0));
+        .thenReturn(result(true, new BigDecimal("13.00"), 5, 5, year2));
 
-    var results = promotionResultService.getPromotionResults(promotionId);
+    var result = promotionResultService.getPromotionResults(promotionId).get(0);
 
-    assertEquals(1, results.size());
-    var result = results.get(0);
-    assertTrue(result.isComplete());
+    assertFalse(result.isComplete());
     assertFalse(result.isGraduate());
-    assertEquals(5, result.getEarnedCredits());
-    assertEquals(10, result.getTotalCredits());
-    assertEquals(1, result.getAcademicYears().size());
-    assertEquals(new BigDecimal("10.00"), result.getAcademicYears().get(0).getAverage());
   }
 
   @Test
-  void missingGradeMakesCourseIncompleteAndStudentNotGraduate() {
+  void threeAcademicYearsAllPassingMakesGraduate() {
     var student = student("STD-003");
-    var enrollment = enrollment();
+    var enrollmentA = enrollment();
+    var enrollmentB = enrollment();
+    var enrollmentC = enrollment();
     when(userRepository.findByRoleAndPromotion_Id(UserRoleEntity.STUDENT, promotionId))
         .thenReturn(List.of(student));
     when(studentCourseEnrollmentRepository.findAllByStudent_Id(student.getId()))
-        .thenReturn(List.of(enrollment));
-    when(studentCourseResultService.calculate(enrollment.getId()))
-        .thenReturn(result(false, null, 5, 0));
+        .thenReturn(List.of(enrollmentA, enrollmentB, enrollmentC));
+    when(studentCourseResultService.calculate(enrollmentA.getId()))
+        .thenReturn(result(true, new BigDecimal("12.00"), 5, 5, year1));
+    when(studentCourseResultService.calculate(enrollmentB.getId()))
+        .thenReturn(result(true, new BigDecimal("13.00"), 5, 5, year2));
+    when(studentCourseResultService.calculate(enrollmentC.getId()))
+        .thenReturn(result(true, new BigDecimal("14.00"), 5, 5, year3));
 
-    var results = promotionResultService.getPromotionResults(promotionId);
+    var result = promotionResultService.getPromotionResults(promotionId).get(0);
 
-    assertEquals(1, results.size());
-    var result = results.get(0);
+    assertTrue(result.isComplete());
+    assertTrue(result.isGraduate());
+    assertEquals(15, result.getEarnedCredits());
+    assertEquals(15, result.getTotalCredits());
+    assertEquals(3, result.getAcademicYears().size());
+    var firstYear = result.getAcademicYears().get(0);
+    assertTrue(firstYear.isComplete());
+    assertEquals(new BigDecimal("12.00"), firstYear.getAverage());
+    assertEquals("2023-2024", firstYear.getLabel());
+  }
+
+  @Test
+  void threeAcademicYearsWithOneFailedCourseIsCompleteButNotGraduate() {
+    var student = student("STD-004");
+    var enrollmentA = enrollment();
+    var enrollmentB = enrollment();
+    var enrollmentC = enrollment();
+    when(userRepository.findByRoleAndPromotion_Id(UserRoleEntity.STUDENT, promotionId))
+        .thenReturn(List.of(student));
+    when(studentCourseEnrollmentRepository.findAllByStudent_Id(student.getId()))
+        .thenReturn(List.of(enrollmentA, enrollmentB, enrollmentC));
+    when(studentCourseResultService.calculate(enrollmentA.getId()))
+        .thenReturn(result(true, new BigDecimal("12.00"), 5, 5, year1));
+    when(studentCourseResultService.calculate(enrollmentB.getId()))
+        .thenReturn(result(true, new BigDecimal("13.00"), 5, 5, year2));
+    when(studentCourseResultService.calculate(enrollmentC.getId()))
+        .thenReturn(result(true, new BigDecimal("8.00"), 5, 0, year3));
+
+    var result = promotionResultService.getPromotionResults(promotionId).get(0);
+
+    assertTrue(result.isComplete());
+    assertFalse(result.isGraduate());
+    assertEquals(10, result.getEarnedCredits());
+    assertEquals(15, result.getTotalCredits());
+    assertEquals(new BigDecimal("8.00"), result.getAcademicYears().get(2).getAverage());
+  }
+
+  @Test
+  void threeAcademicYearsWithOneIncompleteCourseIsNotCompleteNorGraduate() {
+    var student = student("STD-005");
+    var enrollmentA = enrollment();
+    var enrollmentB = enrollment();
+    var enrollmentC = enrollment();
+    when(userRepository.findByRoleAndPromotion_Id(UserRoleEntity.STUDENT, promotionId))
+        .thenReturn(List.of(student));
+    when(studentCourseEnrollmentRepository.findAllByStudent_Id(student.getId()))
+        .thenReturn(List.of(enrollmentA, enrollmentB, enrollmentC));
+    when(studentCourseResultService.calculate(enrollmentA.getId()))
+        .thenReturn(result(true, new BigDecimal("12.00"), 5, 5, year1));
+    when(studentCourseResultService.calculate(enrollmentB.getId()))
+        .thenReturn(result(true, new BigDecimal("13.00"), 5, 5, year2));
+    when(studentCourseResultService.calculate(enrollmentC.getId()))
+        .thenReturn(result(false, null, 5, 0, year3));
+
+    var result = promotionResultService.getPromotionResults(promotionId).get(0);
+
     assertFalse(result.isComplete());
     assertFalse(result.isGraduate());
-    assertEquals(0, result.getEarnedCredits());
-    var year = result.getAcademicYears().get(0);
-    assertFalse(year.isComplete());
-    assertNull(year.getAverage());
+    var incompleteYear = result.getAcademicYears().get(2);
+    assertFalse(incompleteYear.isComplete());
+    assertNull(incompleteYear.getAverage());
   }
 
   @Test
   void earnedCreditsIncludeOnlyPassedCourses() {
-    var student = student("STD-004");
+    var student = student("STD-006");
     var passed = enrollment();
     var failed = enrollment();
-    var failedYearId = UUID.randomUUID();
     when(userRepository.findByRoleAndPromotion_Id(UserRoleEntity.STUDENT, promotionId))
         .thenReturn(List.of(student));
     when(studentCourseEnrollmentRepository.findAllByStudent_Id(student.getId()))
         .thenReturn(List.of(passed, failed));
     when(studentCourseResultService.calculate(passed.getId()))
-        .thenReturn(result(true, new BigDecimal("15.00"), 3, 3));
+        .thenReturn(result(true, new BigDecimal("15.00"), 3, 3, year1));
     when(studentCourseResultService.calculate(failed.getId()))
-        .thenReturn(result(true, new BigDecimal("9.00"), 4, 0, failedYearId));
-    when(academicYearRepository.findById(failedYearId))
-        .thenReturn(
-            Optional.of(AcademicYearEntity.builder().id(failedYearId).label("2023-2024").build()));
+        .thenReturn(result(true, new BigDecimal("9.00"), 4, 0, year1));
 
-    var results = promotionResultService.getPromotionResults(promotionId);
+    var result = promotionResultService.getPromotionResults(promotionId).get(0);
 
-    var result = results.get(0);
     assertEquals(3, result.getEarnedCredits());
     assertEquals(7, result.getTotalCredits());
-    assertEquals(2, result.getAcademicYears().size());
+    assertEquals(1, result.getAcademicYears().size());
     assertFalse(result.isGraduate());
   }
 
   @Test
   void onlyStudentsFromRequestedPromotionAreReturned() {
-    var studentA = student("STD-005");
-    var studentB = student("STD-006");
+    var studentA = student("STD-007");
+    var studentB = student("STD-008");
     when(userRepository.findByRoleAndPromotion_Id(UserRoleEntity.STUDENT, promotionId))
         .thenReturn(List.of(studentA, studentB));
     when(studentCourseEnrollmentRepository.findAllByStudent_Id(studentA.getId()))
@@ -204,28 +248,36 @@ class PromotionResultServiceTest {
 
   @Test
   void getGraduatesReturnsOnlyGraduateStudents() {
-    var studentA = student("STD-007");
-    var studentB = student("STD-008");
-    var enrollmentA = enrollment();
-    var enrollmentB = enrollment();
+    var graduate = student("STD-009");
+    var nonGraduate = student("STD-010");
+    var graduateEnrollments = List.of(enrollment(), enrollment(), enrollment());
+    var nonGraduateEnrollments = List.of(enrollment(), enrollment(), enrollment());
     when(userRepository.findByRoleAndPromotion_Id(UserRoleEntity.STUDENT, promotionId))
-        .thenReturn(List.of(studentA, studentB));
-    when(studentCourseEnrollmentRepository.findAllByStudent_Id(studentA.getId()))
-        .thenReturn(List.of(enrollmentA));
-    when(studentCourseEnrollmentRepository.findAllByStudent_Id(studentB.getId()))
-        .thenReturn(List.of(enrollmentB));
-    when(studentCourseResultService.calculate(enrollmentA.getId()))
-        .thenReturn(result(true, new BigDecimal("14.00"), 5, 5));
-    when(studentCourseResultService.calculate(enrollmentB.getId()))
-        .thenReturn(result(true, new BigDecimal("9.00"), 5, 0));
+        .thenReturn(List.of(graduate, nonGraduate));
+    when(studentCourseEnrollmentRepository.findAllByStudent_Id(graduate.getId()))
+        .thenReturn(graduateEnrollments);
+    when(studentCourseEnrollmentRepository.findAllByStudent_Id(nonGraduate.getId()))
+        .thenReturn(nonGraduateEnrollments);
+    when(studentCourseResultService.calculate(graduateEnrollments.get(0).getId()))
+        .thenReturn(result(true, new BigDecimal("12.00"), 5, 5, year1));
+    when(studentCourseResultService.calculate(graduateEnrollments.get(1).getId()))
+        .thenReturn(result(true, new BigDecimal("13.00"), 5, 5, year2));
+    when(studentCourseResultService.calculate(graduateEnrollments.get(2).getId()))
+        .thenReturn(result(true, new BigDecimal("14.00"), 5, 5, year3));
+    when(studentCourseResultService.calculate(nonGraduateEnrollments.get(0).getId()))
+        .thenReturn(result(true, new BigDecimal("12.00"), 5, 5, year1));
+    when(studentCourseResultService.calculate(nonGraduateEnrollments.get(1).getId()))
+        .thenReturn(result(true, new BigDecimal("13.00"), 5, 5, year2));
+    when(studentCourseResultService.calculate(nonGraduateEnrollments.get(2).getId()))
+        .thenReturn(result(true, new BigDecimal("9.00"), 5, 0, year3));
 
     var graduates = promotionResultService.getGraduates(promotionId);
 
     assertEquals(1, graduates.size());
-    assertEquals(studentA.getId(), graduates.get(0).getStudentId());
-    assertEquals("STD-007", graduates.get(0).getStd());
+    assertEquals(graduate.getId(), graduates.get(0).getStudentId());
+    assertEquals("STD-009", graduates.get(0).getStd());
     assertEquals("jane@hei.school", graduates.get(0).getEmail());
-    assertEquals(5, graduates.get(0).getEarnedCredits());
+    assertEquals(15, graduates.get(0).getEarnedCredits());
   }
 
   private UserEntity student(String std) {
@@ -243,11 +295,6 @@ class PromotionResultServiceTest {
 
   private StudentCourseEnrollmentEntity enrollment() {
     return StudentCourseEnrollmentEntity.builder().id(UUID.randomUUID()).build();
-  }
-
-  private StudentCourseResult result(
-      boolean complete, BigDecimal finalGrade, int credits, int earnedCredits) {
-    return result(complete, finalGrade, credits, earnedCredits, yearId);
   }
 
   private StudentCourseResult result(

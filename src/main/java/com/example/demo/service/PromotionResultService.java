@@ -68,8 +68,10 @@ public class PromotionResultService {
             .map(enrollment -> studentCourseResultService.calculate(enrollment.getId()))
             .toList();
 
+    boolean hasFullThreeYearProgram =
+        results.stream().map(StudentCourseResult::getAcademicYearId).distinct().count() == 3;
     boolean complete =
-        !results.isEmpty() && results.stream().allMatch(StudentCourseResult::isComplete);
+        hasFullThreeYearProgram && results.stream().allMatch(StudentCourseResult::isComplete);
     boolean graduate =
         complete
             && results.stream()

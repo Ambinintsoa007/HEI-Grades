@@ -62,54 +62,30 @@ class PromotionResultControllerIT extends CourseManagementTestBase {
     incompleteStudent = saveStudentInPromotion(promotion);
     failingStudent = saveStudentInPromotion(promotion);
 
-    var course = saveCourse("CRS-RES-" + UUID.randomUUID().toString().substring(0, 8), 5);
-    var year = saveAcademicYear("AY-RES-" + UUID.randomUUID().toString().substring(0, 8));
-    var group = saveGroup("G-RES-" + UUID.randomUUID().toString().substring(0, 8));
-    var offering =
-        courseOfferingRepository.save(
-            CourseOfferingEntity.builder()
-                .id(UUID.randomUUID())
-                .course(course)
-                .academicYear(year)
-                .group(group)
-                .build());
-    var exam =
-        examRepository.save(
-            ExamEntity.builder()
-                .id(UUID.randomUUID())
-                .ref("EXAM-RES-" + UUID.randomUUID().toString().substring(0, 8))
-                .courseOffering(offering)
-                .coefficient(BigDecimal.ONE)
-                .build());
+    var setup1 = courseSetup("2023-2024");
+    var setup2 = courseSetup("2024-2025");
+    var setup3 = courseSetup("2025-2026");
 
-    saveEnrollment(graduateStudent, course, year, offering);
-    saveEnrollment(incompleteStudent, course, year, offering);
-    saveEnrollment(failingStudent, course, year, offering);
+    saveEnrollment(graduateStudent, setup1);
+    saveEnrollment(graduateStudent, setup2);
+    saveEnrollment(graduateStudent, setup3);
+    saveEnrollment(incompleteStudent, setup1);
+    saveEnrollment(incompleteStudent, setup2);
+    saveEnrollment(incompleteStudent, setup3);
+    saveEnrollment(failingStudent, setup1);
+    saveEnrollment(failingStudent, setup2);
+    saveEnrollment(failingStudent, setup3);
 
-    gradeRepository.save(
-        GradeEntity.builder()
-            .id(UUID.randomUUID())
-            .exam(exam)
-            .studentCourseEnrollment(
-                studentCourseEnrollmentRepository
-                    .findByStudent_IdAndCourse_IdAndAcademicYear_Id(
-                        graduateStudent.getId(), course.getId(), year.getId())
-                    .orElseThrow())
-            .score(new BigDecimal("12.00"))
-            .updatedAt(Instant.now())
-            .build());
-    gradeRepository.save(
-        GradeEntity.builder()
-            .id(UUID.randomUUID())
-            .exam(exam)
-            .studentCourseEnrollment(
-                studentCourseEnrollmentRepository
-                    .findByStudent_IdAndCourse_IdAndAcademicYear_Id(
-                        failingStudent.getId(), course.getId(), year.getId())
-                    .orElseThrow())
-            .score(new BigDecimal("8.00"))
-            .updatedAt(Instant.now())
-            .build());
+    saveGrade(graduateStudent, setup1, new BigDecimal("12.00"));
+    saveGrade(graduateStudent, setup2, new BigDecimal("13.00"));
+    saveGrade(graduateStudent, setup3, new BigDecimal("14.00"));
+
+    saveGrade(failingStudent, setup1, new BigDecimal("12.00"));
+    saveGrade(failingStudent, setup2, new BigDecimal("13.00"));
+    saveGrade(failingStudent, setup3, new BigDecimal("8.00"));
+
+    saveGrade(incompleteStudent, setup1, new BigDecimal("12.00"));
+    saveGrade(incompleteStudent, setup2, new BigDecimal("13.00"));
 
     resultsUrl = "/promotions/" + promotion.getId() + "/results";
     graduatesUrl = "/promotions/" + promotion.getId() + "/graduates";
@@ -220,19 +196,59 @@ class PromotionResultControllerIT extends CourseManagementTestBase {
             .build());
   }
 
-  private void saveEnrollment(
-      UserEntity student,
+  private record CourseSetup(
       com.example.demo.repository.model.CourseEntity course,
       com.example.demo.repository.model.AcademicYearEntity year,
-      CourseOfferingEntity offering) {
+      CourseOfferingEntity offering,
+      ExamEntity exam) {}
+
+  private CourseSetup courseSetup(String yearLabel) {
+    var course = saveCourse("CRS-RES-" + UUID.randomUUID().toString().substring(0, 8), 5);
+    var year = saveAcademicYear(yearLabel + "-" + UUID.randomUUID().toString().substring(0, 8));
+    var group = saveGroup("G-RES-" + UUID.randomUUID().toString().substring(0, 8));
+    var offering =
+        courseOfferingRepository.save(
+            CourseOfferingEntity.builder()
+                .id(UUID.randomUUID())
+                .course(course)
+                .academicYear(year)
+                .group(group)
+                .build());
+    var exam =
+        examRepository.save(
+            ExamEntity.builder()
+                .id(UUID.randomUUID())
+                .ref("EXAM-RES-" + UUID.randomUUID().toString().substring(0, 8))
+                .courseOffering(offering)
+                .coefficient(BigDecimal.ONE)
+                .build());
+    return new CourseSetup(course, year, offering, exam);
+  }
+
+  private void saveEnrollment(UserEntity student, CourseSetup setup) {
     studentCourseEnrollmentRepository.save(
         StudentCourseEnrollmentEntity.builder()
             .id(UUID.randomUUID())
             .student(student)
-            .course(course)
-            .academicYear(year)
+            .course(setup.course())
+            .academicYear(setup.year())
             .enrolledAt(Instant.now())
-            .courseOfferings(Set.of(offering))
+            .courseOfferings(Set.of(setup.offering()))
+            .build());
+  }
+
+  private void saveGrade(UserEntity student, CourseSetup setup, BigDecimal score) {
+    gradeRepository.save(
+        GradeEntity.builder()
+            .id(UUID.randomUUID())
+            .exam(setup.exam())
+            .studentCourseEnrollment(
+                studentCourseEnrollmentRepository
+                    .findByStudent_IdAndCourse_IdAndAcademicYear_Id(
+                        student.getId(), setup.course().getId(), setup.year().getId())
+                    .orElseThrow())
+            .score(score)
+            .updatedAt(Instant.now())
             .build());
   }
 }
