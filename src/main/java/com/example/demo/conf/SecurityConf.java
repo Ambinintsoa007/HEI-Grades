@@ -71,6 +71,8 @@ public class SecurityConf {
                     .hasRole("STUDENT")
                     .requestMatchers(HttpMethod.GET, "/students/me/grades")
                     .hasRole("STUDENT")
+                    .requestMatchers(HttpMethod.GET, "/students/*/transcript")
+                    .hasAnyRole("STUDENT", "ADMIN")
                     .anyRequest()
                     .authenticated())
         .oauth2ResourceServer(
