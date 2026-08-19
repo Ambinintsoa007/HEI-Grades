@@ -23,4 +23,6 @@ public interface StudentCourseEnrollmentRepository
 
   Optional<StudentCourseEnrollmentEntity> findByStudent_IdAndCourse_IdAndAcademicYear_Id(
       UUID studentId, UUID courseId, UUID academicYearId);
+
+  List<StudentCourseEnrollmentEntity> findByCourseOfferings_Id(UUID courseOfferingId);
 }
