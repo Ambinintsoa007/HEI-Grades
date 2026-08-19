@@ -43,4 +43,14 @@ public class GradeController {
 
     return gradeService.getHistory(userId, role, gradeId);
   }
+
+  @GetMapping("/exams/{examId}/grades")
+  public List<GradeResponse> getExamGrades(
+      @PathVariable UUID examId, @AuthenticationPrincipal Jwt jwt) {
+
+    UUID userId = UUID.fromString(jwt.getSubject());
+    UserRole role = UserRole.valueOf(jwt.getClaimAsString("role"));
+
+    return gradeService.getExamGrades(userId, role, examId);
+  }
 }

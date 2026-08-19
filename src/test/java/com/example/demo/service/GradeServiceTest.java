@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.example.demo.endpoint.rest.dto.SaveGradeRequest;
 import com.example.demo.endpoint.rest.exception.BusinessException;
+import com.example.demo.endpoint.rest.exception.ResourceNotFoundException;
 import com.example.demo.mapper.GradeHistoryMapper;
 import com.example.demo.mapper.GradeMapper;
 import com.example.demo.model.Grade;
@@ -375,6 +376,111 @@ class GradeServiceTest {
     assertEquals(new BigDecimal("15"), result.getFirst().getNewScore());
 
     verify(gradeHistoryRepository).findByGrade_IdOrderByChangedAtAsc(gradeId);
+  }
+
+  @Test
+  void adminShouldGetExamGrades() {
+    UUID adminId = UUID.randomUUID();
+    UUID examId = UUID.randomUUID();
+    UUID offeringId = UUID.randomUUID();
+
+    CourseOfferingEntity offering = CourseOfferingEntity.builder().id(offeringId).build();
+
+    ExamEntity exam =
+        ExamEntity.builder()
+            .id(examId)
+            .courseOffering(offering)
+            .coefficient(BigDecimal.ONE)
+            .build();
+
+    GradeEntity gradeEntity = mock(GradeEntity.class);
+
+    Grade grade =
+        Grade.builder()
+            .id(UUID.randomUUID())
+            .examId(examId)
+            .studentCourseEnrollmentId(UUID.randomUUID())
+            .score(new BigDecimal("14"))
+            .updatedAt(Instant.now())
+            .build();
+
+    when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+    when(gradeRepository.findByExam_Id(examId)).thenReturn(List.of(gradeEntity));
+
+    when(gradeMapper.toDomain(gradeEntity)).thenReturn(grade);
+
+    var result = gradeService.getExamGrades(adminId, UserRole.ADMIN, examId);
+
+    assertEquals(1, result.size());
+    assertEquals(new BigDecimal("14"), result.getFirst().getScore());
+  }
+
+  @Test
+  void assignedTeacherShouldGetExamGrades() {
+    UUID teacherId = UUID.randomUUID();
+    UUID examId = UUID.randomUUID();
+    UUID offeringId = UUID.randomUUID();
+
+    CourseOfferingEntity offering = CourseOfferingEntity.builder().id(offeringId).build();
+
+    ExamEntity exam =
+        ExamEntity.builder()
+            .id(examId)
+            .courseOffering(offering)
+            .coefficient(BigDecimal.ONE)
+            .build();
+
+    when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+    when(courseOfferingTeacherRepository.existsByCourseOffering_IdAndTeacher_Id(
+            offeringId, teacherId))
+        .thenReturn(true);
+
+    when(gradeRepository.findByExam_Id(examId)).thenReturn(List.of());
+
+    var result = gradeService.getExamGrades(teacherId, UserRole.TEACHER, examId);
+
+    assertTrue(result.isEmpty());
+  }
+
+  @Test
+  void unassignedTeacherShouldNotGetExamGrades() {
+    UUID teacherId = UUID.randomUUID();
+    UUID examId = UUID.randomUUID();
+    UUID offeringId = UUID.randomUUID();
+
+    CourseOfferingEntity offering = CourseOfferingEntity.builder().id(offeringId).build();
+
+    ExamEntity exam =
+        ExamEntity.builder()
+            .id(examId)
+            .courseOffering(offering)
+            .coefficient(BigDecimal.ONE)
+            .build();
+
+    when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+    when(courseOfferingTeacherRepository.existsByCourseOffering_IdAndTeacher_Id(
+            offeringId, teacherId))
+        .thenReturn(false);
+
+    assertThrows(
+        AccessDeniedException.class,
+        () -> gradeService.getExamGrades(teacherId, UserRole.TEACHER, examId));
+
+    verify(gradeRepository, never()).findByExam_Id(any());
+  }
+
+  @Test
+  void shouldRejectUnknownExamWhenGettingGrades() {
+    UUID examId = UUID.randomUUID();
+
+    when(examRepository.findById(examId)).thenReturn(Optional.empty());
+
+    assertThrows(
+        ResourceNotFoundException.class,
+        () -> gradeService.getExamGrades(UUID.randomUUID(), UserRole.ADMIN, examId));
   }
 
   private SaveGradeRequest request(

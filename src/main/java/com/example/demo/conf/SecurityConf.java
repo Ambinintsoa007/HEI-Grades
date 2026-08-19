@@ -65,6 +65,8 @@ public class SecurityConf {
                     .hasAnyRole("ADMIN", "TEACHER")
                     .requestMatchers(HttpMethod.GET, "/grades/*/history")
                     .hasAnyRole("ADMIN", "TEACHER")
+                    .requestMatchers(HttpMethod.GET, "/exams/*/grades")
+                    .hasAnyRole("ADMIN", "TEACHER")
                     .anyRequest()
                     .authenticated())
         .oauth2ResourceServer(

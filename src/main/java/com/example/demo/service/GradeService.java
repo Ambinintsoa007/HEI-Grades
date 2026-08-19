@@ -76,7 +76,6 @@ public class GradeService {
         gradeRepository.findByExam_IdAndStudentCourseEnrollment_Id(
             exam.getId(), enrollment.getId());
 
-    // First grade
     if (existingGrade.isEmpty()) {
       Instant now = Instant.now();
 
@@ -94,7 +93,6 @@ public class GradeService {
       return new SaveGradeResult(toResponse(saved), true);
     }
 
-    // Grade correction
     var gradeEntity = existingGrade.get();
 
     if (gradeEntity.getScore().compareTo(request.getScore()) == 0) {
@@ -160,6 +158,29 @@ public class GradeService {
                     .changedBy(history.getChangedBy())
                     .changedAt(history.getChangedAt())
                     .build())
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<GradeResponse> getExamGrades(UUID authenticatedUserId, UserRole role, UUID examId) {
+
+    var exam =
+        examRepository
+            .findById(examId)
+            .orElseThrow(() -> new ResourceNotFoundException("Exam not found"));
+
+    UUID offeringId = exam.getCourseOffering().getId();
+
+    if (role != UserRole.ADMIN
+        && !(role == UserRole.TEACHER
+            && courseOfferingTeacherRepository.existsByCourseOffering_IdAndTeacher_Id(
+                offeringId, authenticatedUserId))) {
+      throw new AccessDeniedException("Access denied");
+    }
+
+    return gradeRepository.findByExam_Id(examId).stream()
+        .map(gradeMapper::toDomain)
+        .map(this::toResponse)
         .toList();
   }
 
