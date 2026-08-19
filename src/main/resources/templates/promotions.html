@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Promotions</title>
+  </head>
+  <body>
+    <h1>Promotions</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Years</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="promotion : ${promotions}">
+          <td th:text="${promotion.name}"></td>
+          <td th:text="${promotion.startYear + ' - ' + promotion.endYear}"></td>
+          <td>
+            <button
+              th:attr="data-promotion-id=${promotion.id}"
+              onclick="downloadGraduates(this)"
+            >
+              Download graduates
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <script>
+      function downloadGraduates(button) {
+        var token = localStorage.getItem('token');
+        if (!token) {
+          alert('No token found in localStorage');
+          return;
+        }
+        fetch(
+          '/promotions/' + button.dataset.promotionId + '/graduates.xlsx',
+          { headers: { Authorization: 'Bearer ' + token } }
+        )
+          .then(function (response) {
+            if (!response.ok) {
+              alert('Download failed: ' + response.status);
+              return null;
+            }
+            return response.blob();
+          })
+          .then(function (blob) {
+            if (!blob) return;
+            var url = URL.createObjectURL(blob);
+            var link = document.createElement('a');
+            link.href = url;
+            link.download = 'graduates.xlsx';
+            link.click();
+            URL.revokeObjectURL(url);
+          });
+      }
+    </script>
+  </body>
+</html>
