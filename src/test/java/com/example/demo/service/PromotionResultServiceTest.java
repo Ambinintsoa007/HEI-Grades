@@ -72,12 +72,12 @@ class PromotionResultServiceTest {
     year3 = UUID.randomUUID();
     when(promotionRepository.findById(promotionId))
         .thenReturn(Optional.of(PromotionEntity.builder().id(promotionId).name("Promo").build()));
-    when(academicYearRepository.findById(year1))
-        .thenReturn(Optional.of(AcademicYearEntity.builder().id(year1).label("2023-2024").build()));
-    when(academicYearRepository.findById(year2))
-        .thenReturn(Optional.of(AcademicYearEntity.builder().id(year2).label("2024-2025").build()));
-    when(academicYearRepository.findById(year3))
-        .thenReturn(Optional.of(AcademicYearEntity.builder().id(year3).label("2025-2026").build()));
+    when(academicYearRepository.findAll())
+        .thenReturn(
+            List.of(
+                AcademicYearEntity.builder().id(year1).label("2023-2024").build(),
+                AcademicYearEntity.builder().id(year2).label("2024-2025").build(),
+                AcademicYearEntity.builder().id(year3).label("2025-2026").build()));
   }
 
   @Test

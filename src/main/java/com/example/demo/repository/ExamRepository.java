@@ -12,5 +12,7 @@ public interface ExamRepository extends JpaRepository<ExamEntity, UUID> {
 
   List<ExamEntity> findByCourseOffering_Id(UUID courseOfferingId);
 
+  List<ExamEntity> findByCourseOffering_IdIn(List<UUID> courseOfferingIds);
+
   Optional<ExamEntity> findByCourseOffering_IdAndRefIgnoreCase(UUID courseOfferingId, String ref);
 }

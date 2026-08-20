@@ -6,11 +6,14 @@ import com.example.demo.model.StudentCourseResult;
 import com.example.demo.repository.ExamRepository;
 import com.example.demo.repository.GradeRepository;
 import com.example.demo.repository.StudentCourseEnrollmentRepository;
+import com.example.demo.repository.model.CourseOfferingEntity;
 import com.example.demo.repository.model.ExamEntity;
+import com.example.demo.repository.model.GradeEntity;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,13 +37,20 @@ public class StudentCourseResultService {
             .orElseThrow(
                 () -> new ResourceNotFoundException("Student course enrollment not found"));
 
+    var offeringIds =
+        enrollment.getCourseOfferings().stream().map(CourseOfferingEntity::getId).toList();
     var examsById = new LinkedHashMap<UUID, ExamEntity>();
+    examRepository
+        .findByCourseOffering_IdIn(offeringIds)
+        .forEach(exam -> examsById.putIfAbsent(exam.getId(), exam));
 
-    for (var offering : enrollment.getCourseOfferings()) {
-      examRepository
-          .findByCourseOffering_Id(offering.getId())
-          .forEach(exam -> examsById.putIfAbsent(exam.getId(), exam));
-    }
+    var scoresByExamId =
+        gradeRepository.findByStudentCourseEnrollment_Id(enrollmentId).stream()
+            .collect(
+                Collectors.toMap(
+                    grade -> grade.getExam().getId(),
+                    GradeEntity::getScore,
+                    (first, second) -> first));
 
     List<ExamGrade> examGrades =
         examsById.values().stream()
@@ -48,12 +58,7 @@ public class StudentCourseResultService {
                 exam ->
                     ExamGrade.builder()
                         .coefficient(exam.getCoefficient())
-                        .score(
-                            gradeRepository
-                                .findByExam_IdAndStudentCourseEnrollment_Id(
-                                    exam.getId(), enrollmentId)
-                                .map(grade -> grade.getScore())
-                                .orElse(null))
+                        .score(scoresByExamId.get(exam.getId()))
                         .build())
             .toList();
 
