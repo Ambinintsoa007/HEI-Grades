@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connexion - HEI Grades</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}" href="/css/app.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="card login-box">
+        <h2>HEI Grades</h2>
+        <p class="subtitle">Connexion — Accès à HEI Grades</p>
+        <form id="login-form">
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="password">Mot de passe</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              autocomplete="current-password"
+            />
+          </div>
+          <button type="submit" class="btn" id="login-button">Se connecter</button>
+        </form>
+        <div class="message error" id="error-box"></div>
+      </div>
+    </div>
+    <script th:src="@{/js/auth.js}" src="/js/auth.js"></script>
+    <script>
+      document
+        .getElementById('login-form')
+        .addEventListener('submit', async function (event) {
+          event.preventDefault();
+          var email = document.getElementById('email').value;
+          var password = document.getElementById('password').value;
+          var errorBox = document.getElementById('error-box');
+          var button = document.getElementById('login-button');
+          errorBox.style.display = 'none';
+          button.disabled = true;
+          try {
+            var response = await fetch('/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: email, password: password }),
+            });
+            if (!response.ok) {
+              errorBox.textContent = 'Email ou mot de passe incorrect';
+              errorBox.style.display = 'block';
+              return;
+            }
+            var auth = await response.json();
+            localStorage.setItem('token', auth.token);
+            localStorage.setItem('role', auth.role);
+            var routes = {
+              ADMIN: '/web/promotions',
+              STUDENT: '/web/student',
+              TEACHER: '/web/teacher',
+            };
+            window.location.href = routes[auth.role] || '/web/login';
+          } finally {
+            button.disabled = false;
+          }
+        });
+    </script>
+  </body>
+</html>

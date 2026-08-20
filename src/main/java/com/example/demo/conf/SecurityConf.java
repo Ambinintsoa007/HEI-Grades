@@ -23,6 +23,8 @@ public class SecurityConf {
             auth ->
                 auth.requestMatchers("/auth/login", "/ping", "/health/**", "/web/**")
                     .permitAll()
+                    .requestMatchers("/css/**", "/js/**")
+                    .permitAll()
                     .requestMatchers("/users/**")
                     .hasRole("ADMIN")
                     .requestMatchers(HttpMethod.GET, "/promotions/*/results")
