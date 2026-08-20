@@ -40,6 +40,8 @@ class PromotionWebControllerIT extends CourseManagementTestBase {
     assertTrue(response.getBody().contains("Promo 2027 "));
     assertTrue(response.getBody().contains("Promo 2026 "));
     assertTrue(response.getBody().contains("2024 - 2027"));
-    assertTrue(response.getBody().contains("Download graduates"));
+    assertTrue(response.getBody().contains("Télécharger diplômés"));
+    assertTrue(response.getBody().contains("Résultats"));
+    assertTrue(response.getBody().contains("role-badge\">ADMIN"));
   }
 }
