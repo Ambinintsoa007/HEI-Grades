@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HEI Grades - Enseignant</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}" href="/css/app.css" />
+  </head>
+  <body>
+    <div class="header">
+      <h1>HEI Grades</h1>
+      <span class="role-badge">TEACHER</span>
+    </div>
+    <div class="container">
+      <h2>Bonjour, Enseignant</h2>
+      <div class="message" id="message-box"></div>
+
+      <div class="card" id="offerings-card">
+        <h2>Mes cours</h2>
+        <table id="offerings-table">
+          <thead>
+            <tr>
+              <th>Cours</th>
+              <th>Année</th>
+              <th>Groupe</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <p class="muted" id="no-offerings" style="display: none">
+          Aucun cours ne vous est assigné.
+        </p>
+      </div>
+
+      <div class="card" id="exams-card" style="display: none">
+        <h2 id="exams-title">Examens</h2>
+        <button class="btn-secondary" onclick="backToOfferings()">← Retour aux cours</button>
+        <table id="exams-table">
+          <thead>
+            <tr>
+              <th>Référence</th>
+              <th>Coefficient</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card" id="grades-card" style="display: none">
+        <h2 id="grades-title">Notes</h2>
+        <button class="btn-secondary" onclick="backToExams()">← Retour aux examens</button>
+        <table id="grades-table">
+          <thead>
+            <tr>
+              <th>Étudiant</th>
+              <th>Note (0-20)</th>
+              <th>Motif de correction</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <script th:src="@{/js/auth.js}" src="/js/auth.js"></script>
+    <script>
+      var offerings = [];
+      var coursesById = {};
+      var currentOffering = null;
+      var currentExam = null;
+
+      document.addEventListener('DOMContentLoaded', async function () {
+        if (!requireRole('TEACHER')) return;
+        try {
+          var offeringResponse = await apiFetch('/course-offerings');
+          if (!offeringResponse.ok) {
+            showMessage('Action non autorisée', 'forbidden');
+            return;
+          }
+          offerings = await offeringResponse.json();
+          var courseResponse = await apiFetch('/courses');
+          if (!courseResponse.ok) {
+            showMessage('Action non autorisée', 'forbidden');
+            return;
+          }
+          (await courseResponse.json()).forEach(function (c) {
+            coursesById[c.id] = c;
+          });
+          renderOfferings();
+        } catch (error) {}
+      });
+
+      function renderOfferings() {
+        var tbody = document.querySelector('#offerings-table tbody');
+        tbody.innerHTML = '';
+        if (!offerings || offerings.length === 0) {
+          document.getElementById('no-offerings').style.display = 'block';
+          return;
+        }
+        offerings.forEach(function (o) {
+          var course = coursesById[o.courseId] || { ref: o.courseId, title: '' };
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + escapeHtml(course.ref) + '</td>' +
+            '<td>' + escapeHtml(o.academicYearId) + '</td>' +
+            '<td>' + escapeHtml(o.groupId) + '</td>' +
+            '<td><button class="btn-secondary" onclick="showExams(\'' + o.id + '\')">Voir examens</button></td>';
+          tbody.appendChild(tr);
+        });
+      }
+
+      function showExams(offeringId) {
+        currentOffering = offerings.find(function (o) {
+          return o.id === offeringId;
+        });
+        if (!currentOffering) return;
+        document.getElementById('offerings-card').style.display = 'none';
+        document.getElementById('grades-card').style.display = 'none';
+        document.getElementById('exams-card').style.display = 'block';
+        var course = coursesById[currentOffering.courseId] || {};
+        document.getElementById('exams-title').textContent =
+          'Examens - ' + (course.ref || '');
+        loadExams();
+      }
+
+      async function loadExams() {
+        clearMessage();
+        var tbody = document.querySelector('#exams-table tbody');
+        tbody.innerHTML = '<tr><td colspan="3">Chargement…</td></tr>';
+        try {
+          var response = await apiFetch(
+            '/course-offerings/' + currentOffering.id + '/exams'
+          );
+          if (!response.ok) {
+            showMessage('Action non autorisée', 'forbidden');
+            return;
+          }
+          var exams = await response.json();
+          tbody.innerHTML = '';
+          exams.forEach(function (exam) {
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+              '<td>' + escapeHtml(exam.ref) + '</td>' +
+              '<td>' + exam.coefficient + '</td>' +
+              '<td><button class="btn" onclick="showGrades(\'' + exam.id + '\')">Voir notes</button></td>';
+            tbody.appendChild(tr);
+          });
+          if (exams.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="muted">Aucun examen.</td></tr>';
+          }
+        } catch (error) {}
+      }
+
+      function showGrades(examId) {
+        currentExam = examId;
+        document.getElementById('exams-card').style.display = 'none';
+        document.getElementById('grades-card').style.display = 'block';
+        document.getElementById('grades-title').textContent = 'Notes - Examen ' + examId;
+        loadGrades();
+      }
+
+      async function loadGrades() {
+        clearMessage();
+        var tbody = document.querySelector('#grades-table tbody');
+        tbody.innerHTML = '<tr><td colspan="4">Chargement…</td></tr>';
+        try {
+          var response = await apiFetch('/exams/' + currentExam + '/grades');
+          if (!response.ok) {
+            showMessage('Action non autorisée', 'forbidden');
+            return;
+          }
+          var grades = await response.json();
+          tbody.innerHTML = '';
+          grades.forEach(function (g) {
+            var existing = g.score != null;
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+              '<td>' + escapeHtml(g.firstName) + ' ' + escapeHtml(g.lastName) + ' <span class="muted">(' + escapeHtml(g.std) + ')</span></td>' +
+              '<td><input type="number" step="0.01" min="0" max="20" id="score-' + g.studentCourseEnrollmentId + '" value="' + (g.score != null ? g.score : '') + '" /></td>' +
+              '<td><input type="text" id="reason-' + g.studentCourseEnrollmentId + '" placeholder="' + (existing ? 'Motif requis' : 'Optionnel') + '" /></td>' +
+              '<td><button class="btn" onclick="saveGrade(\'' + g.examId + '\', \'' + g.studentCourseEnrollmentId + '\', ' + existing + ')">Enregistrer</button></td>';
+            tbody.appendChild(tr);
+          });
+        } catch (error) {}
+      }
+
+      async function saveGrade(examId, enrollmentId, existing) {
+        clearMessage();
+        var scoreInput = document.getElementById('score-' + enrollmentId);
+        var reasonInput = document.getElementById('reason-' + enrollmentId);
+        var score = scoreInput.value;
+        if (score === '' || isNaN(score)) {
+          showMessage('Veuillez saisir une note.', 'error');
+          return;
+        }
+        if (existing && !reasonInput.value.trim()) {
+          showMessage('Un motif de correction est requis pour modifier une note.', 'error');
+          return;
+        }
+        try {
+          var response = await apiFetch('/grades', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              examId: examId,
+              studentCourseEnrollmentId: enrollmentId,
+              score: parseFloat(score),
+              correctionReason: reasonInput.value.trim() || null,
+            }),
+          });
+          if (response.status === 201 || response.status === 200) {
+            showMessage('Note enregistrée.', 'success');
+            loadGrades();
+          } else if (response.status === 403) {
+            showMessage('Action non autorisée', 'forbidden');
+          } else {
+            var data = null;
+            try {
+              data = await response.json();
+            } catch (e) {}
+            showMessage(
+              data && data.message ? data.message : "Impossible d'enregistrer la note.",
+              'error'
+            );
+          }
+        } catch (error) {}
+      }
+
+      function backToOfferings() {
+        document.getElementById('exams-card').style.display = 'none';
+        document.getElementById('grades-card').style.display = 'none';
+        document.getElementById('offerings-card').style.display = 'block';
+      }
+
+      function backToExams() {
+        document.getElementById('grades-card').style.display = 'none';
+        document.getElementById('exams-card').style.display = 'block';
+      }
+
+      function escapeHtml(value) {
+        var div = document.createElement('div');
+        div.textContent = value;
+        return div.innerHTML;
+      }
+    </script>
+  </body>
+</html>
