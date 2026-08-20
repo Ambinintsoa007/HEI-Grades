@@ -269,4 +269,22 @@ class TranscriptServiceTest {
     assertEquals(studentId, result.getStudentId());
     assertTrue(result.getCourses().isEmpty());
   }
+
+  @Test
+  void studentWithoutEnrollmentShouldHaveIncompleteTranscript() {
+    UUID studentId = UUID.randomUUID();
+
+    UserEntity student = mock(UserEntity.class);
+    when(student.getRole()).thenReturn(UserRoleEntity.STUDENT);
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(enrollmentRepository.findAllByStudent_Id(studentId)).thenReturn(List.of());
+
+    var result = transcriptService.getTranscript(studentId, UserRole.STUDENT, studentId);
+
+    assertFalse(result.isComplete());
+    assertNull(result.getAnnualAverage());
+    assertEquals(0, result.getEarnedCredits());
+    assertTrue(result.getCourses().isEmpty());
+  }
 }

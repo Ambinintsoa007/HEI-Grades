@@ -65,7 +65,7 @@ public class TranscriptService {
 
     var courses = new ArrayList<TranscriptCourseResponse>();
 
-    boolean complete = true;
+    boolean complete = !enrollments.isEmpty();
     int earnedCredits = 0;
 
     BigDecimal weightedTotal = BigDecimal.ZERO;
