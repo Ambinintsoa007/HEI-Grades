@@ -30,6 +30,7 @@ class WebPageControllerIT extends CourseManagementTestBase {
     assertTrue(response.getBody().contains("Mes notes"));
     assertTrue(response.getBody().contains("role-badge\">STUDENT"));
     assertTrue(response.getBody().contains("Mon relevé"));
+    assertTrue(response.getBody().contains("Changer de compte"));
   }
 
   @Test
@@ -40,6 +41,7 @@ class WebPageControllerIT extends CourseManagementTestBase {
     assertTrue(response.getBody().contains("Mes cours"));
     assertTrue(response.getBody().contains("role-badge\">TEACHER"));
     assertTrue(response.getBody().contains("Motif de correction"));
+    assertTrue(response.getBody().contains("Changer de compte"));
   }
 
   @Test
