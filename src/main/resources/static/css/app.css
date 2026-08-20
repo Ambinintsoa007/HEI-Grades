@@ -120,7 +120,8 @@ td {
 input[type='number'],
 input[type='text'],
 input[type='password'],
-input[type='email'] {
+input[type='email'],
+select {
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 8px;

@@ -44,5 +44,8 @@ class PromotionWebControllerIT extends CourseManagementTestBase {
     assertTrue(response.getBody().contains("Résultats"));
     assertTrue(response.getBody().contains("role-badge\">ADMIN"));
     assertTrue(response.getBody().contains("Changer de compte"));
+    assertTrue(response.getBody().contains("Créer un utilisateur"));
+    assertTrue(response.getBody().contains("<option value=\"STUDENT\">Étudiant</option>"));
+    assertTrue(response.getBody().contains("<option value=\"TEACHER\">Enseignant</option>"));
   }
 }

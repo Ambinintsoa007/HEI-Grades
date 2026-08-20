@@ -57,12 +57,112 @@
         <h2 id="results-title">Résultats</h2>
         <div id="results-container"></div>
       </div>
+
+      <div class="card">
+        <h2>Créer un utilisateur</h2>
+        <form id="user-form">
+          <div class="form-group">
+            <label for="user-role">Rôle</label>
+            <select id="user-role">
+              <option value="STUDENT">Étudiant</option>
+              <option value="TEACHER">Enseignant</option>
+            </select>
+          </div>
+          <div class="row">
+            <div class="form-group">
+              <label for="user-firstname">Prénom</label>
+              <input type="text" id="user-firstname" required />
+            </div>
+            <div class="form-group">
+              <label for="user-lastname">Nom</label>
+              <input type="text" id="user-lastname" required />
+            </div>
+          </div>
+          <div class="row">
+            <div class="form-group">
+              <label for="user-email">Email</label>
+              <input type="email" id="user-email" required />
+            </div>
+            <div class="form-group">
+              <label for="user-password">Mot de passe</label>
+              <input type="password" id="user-password" required />
+            </div>
+          </div>
+          <div class="row" id="student-fields">
+            <div class="form-group">
+              <label for="user-std">N° étudiant (STD)</label>
+              <input type="text" id="user-std" />
+            </div>
+            <div class="form-group">
+              <label for="user-promotion">Promotion</label>
+              <select id="user-promotion">
+                <option
+                  th:each="promotion : ${promotions}"
+                  th:value="${promotion.id}"
+                  th:text="${promotion.name + ' (' + promotion.startYear + ' - ' + promotion.endYear + ')'}"
+                ></option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn">Créer l'utilisateur</button>
+        </form>
+      </div>
     </div>
     <script th:src="@{/js/auth.js}" src="/js/auth.js"></script>
     <script>
       document.addEventListener('DOMContentLoaded', function () {
         if (!requireRole('ADMIN')) return;
+        var roleSelect = document.getElementById('user-role');
+        roleSelect.addEventListener('change', toggleStudentFields);
+        toggleStudentFields();
+        document.getElementById('user-form').addEventListener('submit', createUser);
       });
+
+      function toggleStudentFields() {
+        var isStudent = document.getElementById('user-role').value === 'STUDENT';
+        document.getElementById('student-fields').style.display = isStudent ? 'flex' : 'none';
+        document.getElementById('user-std').required = isStudent;
+      }
+
+      async function createUser(event) {
+        event.preventDefault();
+        clearMessage();
+        var isStudent = document.getElementById('user-role').value === 'STUDENT';
+        var body = {
+          firstName: document.getElementById('user-firstname').value,
+          lastName: document.getElementById('user-lastname').value,
+          email: document.getElementById('user-email').value,
+          password: document.getElementById('user-password').value,
+          role: document.getElementById('user-role').value,
+        };
+        if (isStudent) {
+          body.std = document.getElementById('user-std').value;
+          body.promotionId = document.getElementById('user-promotion').value;
+        }
+        try {
+          var response = await apiFetch('/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (response.status === 201) {
+            showMessage('Utilisateur créé avec succès.', 'success');
+            document.getElementById('user-form').reset();
+            toggleStudentFields();
+          } else if (response.status === 403) {
+            showMessage('Action non autorisée', 'forbidden');
+          } else {
+            var data = null;
+            try {
+              data = await response.json();
+            } catch (e) {}
+            showMessage(
+              data && data.message ? data.message : "Impossible de créer l'utilisateur.",
+              'error'
+            );
+          }
+        } catch (error) {}
+      }
 
       async function showResults(button) {
         clearMessage();
