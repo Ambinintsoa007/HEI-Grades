@@ -47,5 +47,6 @@ class PromotionWebControllerIT extends CourseManagementTestBase {
     assertTrue(response.getBody().contains("Créer un utilisateur"));
     assertTrue(response.getBody().contains("<option value=\"STUDENT\">Étudiant</option>"));
     assertTrue(response.getBody().contains("<option value=\"TEACHER\">Enseignant</option>"));
+    assertTrue(response.getBody().contains("<option value=\"ADMIN\">Administrateur</option>"));
   }
 }
