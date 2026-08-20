@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HEI Grades - Étudiant</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}" href="/css/app.css" />
+  </head>
+  <body>
+    <div class="header">
+      <h1>HEI Grades</h1>
+      <span class="role-badge">STUDENT</span>
+    </div>
+    <div class="container">
+      <h2 id="greeting">Bonjour</h2>
+      <div class="message" id="message-box"></div>
+
+      <div class="card">
+        <h2>Mes notes</h2>
+        <table id="grades-table">
+          <thead>
+            <tr>
+              <th>Cours</th>
+              <th>Examen</th>
+              <th>Coefficient</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <p class="muted" id="no-grades" style="display: none">Aucune note publiée pour le moment.</p>
+      </div>
+
+      <div class="card">
+        <h2>Mon relevé</h2>
+        <div class="row">
+          <p class="muted" id="transcript-summary"></p>
+          <span class="spacer"></span>
+          <button class="btn-secondary" onclick="loadTranscript()">Voir mon relevé</button>
+          <button class="btn" onclick="sendTranscriptEmail()">Recevoir par email</button>
+        </div>
+        <div id="transcript-container"></div>
+      </div>
+    </div>
+    <script th:src="@{/js/auth.js}" src="/js/auth.js"></script>
+    <script>
+      var me = null;
+
+      document.addEventListener('DOMContentLoaded', async function () {
+        if (!requireRole('STUDENT')) return;
+        try {
+          var meResponse = await apiFetch('/students/me');
+          if (!meResponse.ok) {
+            showMessage('Action non autorisée', 'forbidden');
+            return;
+          }
+          me = await meResponse.json();
+          document.getElementById('greeting').textContent = 'Bonjour, ' + me.firstName;
+          var gradesResponse = await apiFetch('/students/me/grades');
+          if (!gradesResponse.ok) {
+            showMessage('Action non autorisée', 'forbidden');
+            return;
+          }
+          renderGrades(await gradesResponse.json());
+        } catch (error) {
+          // 401 déjà géré par apiFetch
+        }
+      });
+
+      function renderGrades(grades) {
+        var tbody = document.querySelector('#grades-table tbody');
+        tbody.innerHTML = '';
+        if (!grades || grades.length === 0) {
+          document.getElementById('no-grades').style.display = 'block';
+          return;
+        }
+        grades.forEach(function (g) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + escapeHtml(g.courseRef || '') + '</td>' +
+            '<td>' + escapeHtml(g.examRef || '') + '</td>' +
+            '<td>' + (g.coefficient != null ? g.coefficient : '') + '</td>' +
+            '<td>' + (g.score != null ? g.score : '—') + '</td>';
+          tbody.appendChild(tr);
+        });
+      }
+
+      async function loadTranscript() {
+        clearMessage();
+        try {
+          var response = await apiFetch('/students/' + me.id + '/transcript');
+          if (!response.ok) {
+            showMessage('Action non autorisée', 'forbidden');
+            return;
+          }
+          renderTranscript(await response.json());
+        } catch (error) {}
+      }
+
+      function renderTranscript(t) {
+        var container = document.getElementById('transcript-container');
+        var status = t.complete ? 'Complet' : 'En cours';
+        document.getElementById('transcript-summary').textContent =
+          'Moyenne : ' + (t.annualAverage != null ? t.annualAverage : '—') +
+          ' | Crédits acquis : ' + t.earnedCredits +
+          ' | Statut : ' + status;
+        var html =
+          '<table><thead><tr><th>Cours</th><th>Crédits</th><th>Note finale</th><th>Validé</th></tr></thead><tbody>';
+        t.courses.forEach(function (c) {
+          html +=
+            '<tr><td>' + escapeHtml(c.title || c.ref) + '</td><td>' + c.credits + '</td>' +
+            '<td>' + (c.finalGrade != null ? c.finalGrade : '—') + '</td>' +
+            '<td>' + (c.validated ? 'Oui' : 'Non') + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      }
+
+      async function sendTranscriptEmail() {
+        clearMessage();
+        try {
+          var response = await apiFetch('/students/' + me.id + '/transcript/email', {
+            method: 'POST',
+          });
+          if (response.status === 202) {
+            showMessage('Le relevé sera envoyé par email.', 'success');
+          } else if (response.status === 403) {
+            showMessage('Action non autorisée', 'forbidden');
+          } else {
+            showMessage('Impossible d\'envoyer le relevé.', 'error');
+          }
+        } catch (error) {}
+      }
+
+      function escapeHtml(value) {
+        var div = document.createElement('div');
+        div.textContent = value;
+        return div.innerHTML;
+      }
+    </script>
+  </body>
+</html>
