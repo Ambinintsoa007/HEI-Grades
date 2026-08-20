@@ -140,6 +140,31 @@ class PromotionResultControllerIT extends CourseManagementTestBase {
   }
 
   @Test
+  void xlsxContentDispositionUsesUtf8EncodedFilename() {
+    var accentedPromotion =
+        promotionRepository.save(
+            PromotionEntity.builder()
+                .id(UUID.randomUUID())
+                .name("TEST PROMO été " + UUID.randomUUID().toString().substring(0, 8))
+                .startYear(2024)
+                .endYear(2027)
+                .build());
+
+    ResponseEntity<byte[]> response =
+        restTemplate.exchange(
+            "/promotions/" + accentedPromotion.getId() + "/graduates.xlsx",
+            HttpMethod.GET,
+            new HttpEntity<>(authHeaders(saveAdmin())),
+            byte[].class);
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    String disposition = response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION);
+    assertTrue(disposition.contains("filename*=UTF-8''"), disposition);
+    assertTrue(disposition.contains("%C3%A9"), disposition);
+    assertTrue(!disposition.contains("été"), disposition);
+  }
+
+  @Test
   void teacherGets403OnAllEndpoints() {
     HttpHeaders headers = authHeaders(saveTeacher());
 

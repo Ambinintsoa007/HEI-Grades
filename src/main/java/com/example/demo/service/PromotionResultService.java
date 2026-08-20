@@ -12,6 +12,7 @@ import com.example.demo.repository.PromotionRepository;
 import com.example.demo.repository.StudentCourseEnrollmentRepository;
 import com.example.demo.repository.StudentGroupHistoryRepository;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.repository.model.AcademicYearEntity;
 import com.example.demo.repository.model.PromotionEntity;
 import com.example.demo.repository.model.StudentGroupHistoryEntity;
 import com.example.demo.repository.model.UserEntity;
@@ -45,9 +46,10 @@ public class PromotionResultService {
   @Transactional(readOnly = true)
   public PromotionResultsResponse getPromotionResults(UUID promotionId) {
     requireExistingPromotion(promotionId);
+    Map<UUID, String> yearLabels = academicYearLabels();
     List<PromotionStudentResultResponse> students =
         promotionStudents(promotionId).stream()
-            .map(student -> toStudentResult(student, studentResults(student)))
+            .map(student -> toStudentResult(student, studentResults(student), yearLabels))
             .toList();
     return PromotionResultsResponse.builder().promotionId(promotionId).students(students).build();
   }
@@ -79,13 +81,13 @@ public class PromotionResultService {
   }
 
   private PromotionStudentResultResponse toStudentResult(
-      UserEntity student, List<StudentCourseResult> results) {
+      UserEntity student, List<StudentCourseResult> results, Map<UUID, String> yearLabels) {
     List<StudentAcademicYearResultResponse> academicYears =
         results.stream()
             .collect(Collectors.groupingBy(StudentCourseResult::getAcademicYearId))
             .entrySet()
             .stream()
-            .map(this::toAcademicYearResult)
+            .map(entry -> toAcademicYearResult(entry, yearLabels))
             .sorted(Comparator.comparing(StudentAcademicYearResultResponse::getAcademicYearLabel))
             .toList();
 
@@ -101,7 +103,7 @@ public class PromotionResultService {
   }
 
   private StudentAcademicYearResultResponse toAcademicYearResult(
-      Map.Entry<UUID, List<StudentCourseResult>> entry) {
+      Map.Entry<UUID, List<StudentCourseResult>> entry, Map<UUID, String> yearLabels) {
     UUID academicYearId = entry.getKey();
     List<StudentCourseResult> results = entry.getValue();
 
@@ -111,7 +113,7 @@ public class PromotionResultService {
 
     return StudentAcademicYearResultResponse.builder()
         .academicYearId(academicYearId)
-        .academicYearLabel(academicYearLabel(academicYearId))
+        .academicYearLabel(yearLabels.get(academicYearId))
         .average(average)
         .earnedCredits(earnedCredits)
         .complete(complete)
@@ -147,11 +149,9 @@ public class PromotionResultService {
     return weightedTotal.divide(totalCredits, AVERAGE_SCALE, RoundingMode.HALF_UP);
   }
 
-  private String academicYearLabel(UUID academicYearId) {
-    return academicYearRepository
-        .findById(academicYearId)
-        .map(academicYear -> academicYear.getLabel())
-        .orElse(null);
+  private Map<UUID, String> academicYearLabels() {
+    return academicYearRepository.findAll().stream()
+        .collect(Collectors.toMap(AcademicYearEntity::getId, AcademicYearEntity::getLabel));
   }
 
   private GraduateResponse toGraduateResponse(

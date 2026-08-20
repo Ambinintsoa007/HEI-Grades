@@ -199,6 +199,7 @@ public class StudentService {
     return current.name().equals(requested.name());
   }
 
+  @Transactional(readOnly = true)
   public List<StudentCourseResponse> getCourses(UUID studentId) {
     findStudent(studentId);
 

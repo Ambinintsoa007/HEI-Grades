@@ -55,9 +55,9 @@ class StudentCourseResultServiceTest {
 
     ExamEntity exam2 = ExamEntity.builder().id(exam2Id).coefficient(new BigDecimal("2")).build();
 
-    GradeEntity grade1 = GradeEntity.builder().score(new BigDecimal("12")).build();
+    GradeEntity grade1 = GradeEntity.builder().exam(exam1).score(new BigDecimal("12")).build();
 
-    GradeEntity grade2 = GradeEntity.builder().score(new BigDecimal("16")).build();
+    GradeEntity grade2 = GradeEntity.builder().exam(exam2).score(new BigDecimal("16")).build();
 
     when(enrollmentRepository.findById(enrollmentId)).thenReturn(Optional.of(enrollment));
 
@@ -71,14 +71,11 @@ class StudentCourseResultServiceTest {
     when(academicYear.getId()).thenReturn(academicYearId);
     when(offering.getId()).thenReturn(offeringId);
 
-    when(examRepository.findByCourseOffering_Id(offeringId))
+    when(examRepository.findByCourseOffering_IdIn(java.util.List.of(offeringId)))
         .thenReturn(java.util.List.of(exam1, exam2));
 
-    when(gradeRepository.findByExam_IdAndStudentCourseEnrollment_Id(exam1Id, enrollmentId))
-        .thenReturn(Optional.of(grade1));
-
-    when(gradeRepository.findByExam_IdAndStudentCourseEnrollment_Id(exam2Id, enrollmentId))
-        .thenReturn(Optional.of(grade2));
+    when(gradeRepository.findByStudentCourseEnrollment_Id(enrollmentId))
+        .thenReturn(java.util.List.of(grade1, grade2));
 
     var result = service.calculate(enrollmentId);
 
@@ -106,7 +103,7 @@ class StudentCourseResultServiceTest {
 
     ExamEntity exam2 = ExamEntity.builder().id(exam2Id).coefficient(BigDecimal.ONE).build();
 
-    GradeEntity grade1 = GradeEntity.builder().score(new BigDecimal("15")).build();
+    GradeEntity grade1 = GradeEntity.builder().exam(exam1).score(new BigDecimal("15")).build();
 
     when(enrollmentRepository.findById(enrollmentId)).thenReturn(Optional.of(enrollment));
 
@@ -117,14 +114,11 @@ class StudentCourseResultServiceTest {
     when(course.getCredits()).thenReturn(5);
     when(offering.getId()).thenReturn(offeringId);
 
-    when(examRepository.findByCourseOffering_Id(offeringId))
+    when(examRepository.findByCourseOffering_IdIn(java.util.List.of(offeringId)))
         .thenReturn(java.util.List.of(exam1, exam2));
 
-    when(gradeRepository.findByExam_IdAndStudentCourseEnrollment_Id(exam1Id, enrollmentId))
-        .thenReturn(Optional.of(grade1));
-
-    when(gradeRepository.findByExam_IdAndStudentCourseEnrollment_Id(exam2Id, enrollmentId))
-        .thenReturn(Optional.empty());
+    when(gradeRepository.findByStudentCourseEnrollment_Id(enrollmentId))
+        .thenReturn(java.util.List.of(grade1));
 
     var result = service.calculate(enrollmentId);
 
@@ -146,7 +140,7 @@ class StudentCourseResultServiceTest {
 
     ExamEntity exam = ExamEntity.builder().id(examId).coefficient(BigDecimal.ONE).build();
 
-    GradeEntity grade = GradeEntity.builder().score(new BigDecimal("9")).build();
+    GradeEntity grade = GradeEntity.builder().exam(exam).score(new BigDecimal("9")).build();
 
     when(enrollmentRepository.findById(enrollmentId)).thenReturn(Optional.of(enrollment));
 
@@ -157,10 +151,11 @@ class StudentCourseResultServiceTest {
     when(course.getCredits()).thenReturn(6);
     when(offering.getId()).thenReturn(offeringId);
 
-    when(examRepository.findByCourseOffering_Id(offeringId)).thenReturn(java.util.List.of(exam));
+    when(examRepository.findByCourseOffering_IdIn(java.util.List.of(offeringId)))
+        .thenReturn(java.util.List.of(exam));
 
-    when(gradeRepository.findByExam_IdAndStudentCourseEnrollment_Id(examId, enrollmentId))
-        .thenReturn(Optional.of(grade));
+    when(gradeRepository.findByStudentCourseEnrollment_Id(enrollmentId))
+        .thenReturn(java.util.List.of(grade));
 
     var result = service.calculate(enrollmentId);
 
